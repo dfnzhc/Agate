@@ -35,3 +35,5 @@
 /cmake-build-release/
 /cmake-build-relwithdebinfo/
 /.idea/
+/test/cmake-build-release/
+/test/cmake-build-relwithdebinfo/

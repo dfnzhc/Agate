@@ -11,7 +11,9 @@ endif ()
 
 project(CGT VERSION 0.1 LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 20)
+add_subdirectory(ext)
+
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_CUDA "Enable CUDA" ON)
@@ -37,19 +39,31 @@ include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-set(headers
+set(sources
         include/pch.h
         include/CGT/CGT.h
+        src/common.cpp include/CGT/common.h
+        src/util/uString.cpp include/CGT/util/uString.h
+        src/util/uMath.cpp include/CGT/util/uMath.h
+        
         )
 
-set_source_files_properties(${headers} PROPERTIES LANGUAGE CXX)
+set_source_files_properties(${sources} PROPERTIES LANGUAGE CXX)
 
 add_library(CGT
-        # Header files
-        ${headers}
+        # Source files
+        ${sources}
         )
+
+target_link_libraries(CGT
+        PRIVATE
+        tbb
+        PUBLIC
+        glm
+        fmt)
 
 target_precompile_headers(CGT PRIVATE include/pch.h)
 
+set(CGT_INCLUDE_DIR PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(test)
