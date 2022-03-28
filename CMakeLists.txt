@@ -47,7 +47,14 @@ set(sources
         src/util/uString.cpp include/CGT/util/uString.h
         src/util/uMath.cpp include/CGT/util/uMath.h
 
-        src/util/timer.cpp include/CGT/util/timer.h src/util/uSampling.cpp include/CGT/util/uSampling.h src/misc/stb.cpp src/util/bitmap.cpp include/CGT/util/bitmap.h src/util/texture.cpp include/CGT/util/texture.h)
+        src/util/timer.cpp include/CGT/util/timer.h 
+        src/util/uSampling.cpp include/CGT/util/uSampling.h 
+        src/misc/stb.cpp 
+        src/util/bitmap.cpp include/CGT/util/bitmap.h 
+        src/util/texture.cpp include/CGT/util/texture.h 
+        include/CGT/util/uRandom.h 
+        src/util/uTransform.cpp include/CGT/util/uTransform.h 
+        include/CGT/util/frame.h)
 
 set_source_files_properties(${sources} PROPERTIES LANGUAGE CXX)
 

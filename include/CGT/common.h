@@ -30,22 +30,24 @@ constexpr double SQRT3 = std::numbers::sqrt3;
 constexpr double INV_SQRT3 = 1.0 / SQRT3;
 
 /// define some data structure
-using Vector1f = glm::vec1;
 using Vector2f = glm::vec2;
 using Vector3f = glm::vec3;
 using Vector4f = glm::vec4;
-using Vector1d = glm::highp_vec1;
 using Vector2d = glm::highp_vec2;
 using Vector3d = glm::highp_vec3;
 using Vector4d = glm::highp_vec4;
-using Point1f = glm::vec1;
+using Normal3f = glm::vec3;
+using Normal3d = glm::highp_vec3;
 using Point2f = glm::vec2;
 using Point3f = glm::vec3;
 using Point4f = glm::vec4;
-using Point1d = glm::highp_vec1;
 using Point2d = glm::highp_vec2;
 using Point3d = glm::highp_vec3;
 using Point4d = glm::highp_vec4;
+using Matrix3x3f = glm::mat3x3;
+using Matrix4x4f = glm::mat4x4;
+using Matrix3x3d = glm::highp_mat3x3;
+using Matrix4x4d = glm::highp_mat4x4;
 
 
 /// for debugging purposes
