@@ -37,6 +37,7 @@ endif ()
 include_directories(
         # CGT include files
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${STB_INCLUDE_DIR}
 )
 
 set(sources
@@ -45,8 +46,8 @@ set(sources
         src/common.cpp include/CGT/common.h
         src/util/uString.cpp include/CGT/util/uString.h
         src/util/uMath.cpp include/CGT/util/uMath.h
-        
-        )
+
+        src/util/timer.cpp include/CGT/util/timer.h src/util/uSampling.cpp include/CGT/util/uSampling.h src/misc/stb.cpp src/util/bitmap.cpp include/CGT/util/bitmap.h src/util/texture.cpp include/CGT/util/texture.h)
 
 set_source_files_properties(${sources} PROPERTIES LANGUAGE CXX)
 

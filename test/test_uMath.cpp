@@ -7,10 +7,10 @@
 #include <catch2/catch.hpp>
 #include "CGT/util/uMath.h"
 
-TEST_CASE("Degree and radians", "[radToDeg & degToRad]")
+TEST_CASE("Degree and radians", "[RadToDeg & DegToRad]")
 {
-    REQUIRE(CGT::radToDeg(CGT::PI) == 180.0);
-    REQUIRE(CGT::degToRad(45.0) == CGT::PI_OVER4);
+    REQUIRE(CGT::RadToDeg(CGT::PI) == 180.0);
+    REQUIRE(CGT::DegToRad(45.0) == CGT::PI_OVER4);
 }
 
 TEST_CASE("Cosin Cosin", "[getCosSin]")

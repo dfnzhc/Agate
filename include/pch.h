@@ -30,6 +30,9 @@
 #include <string_view>
 #include <format>
 #include <cstdint>
+#include <thread>
+#include <condition_variable>
+#include <deque>
 
 #ifdef WIN32
 #include <Windows.h>

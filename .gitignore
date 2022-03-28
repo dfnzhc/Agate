@@ -37,3 +37,9 @@
 /.idea/
 /test/cmake-build-release/
 /test/cmake-build-relwithdebinfo/
+/ext/stb/.github/
+/ext/stb/data/
+/ext/stb/deprecated/
+/ext/stb/docs/
+/ext/stb/tests/
+/ext/stb/tools/

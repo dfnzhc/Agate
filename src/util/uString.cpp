@@ -2,7 +2,6 @@
 // Created by 秋鱼头 on 2022/3/27.
 //
 #include <CGT/common.h>
-#include "pch.h"
 #include "CGT/util/uString.h"
 
 namespace CGT {
@@ -64,18 +63,18 @@ float toFloat(std::string_view str)
     return result;
 }
 
-glm::vec3 toVector3f(std::string_view str)
+Vector3f toVector3f(std::string_view str)
 {
-    std::vector<std::string> tokens = tokenize(str);
+    std::vector<std::string> tokens = Tokenize(str);
     if (tokens.size() != 3)
         throw CGTException("Expected 3 values");
-    glm::vec3 result;
+    Vector3f result;
     for (int i = 0; i < 3; ++i)
         result[i] = toFloat(tokens[i]);
     return result;
 }
 
-std::vector<std::string> tokenize(std::string_view str, std::string_view delim, bool includeEmpty)
+std::vector<std::string> Tokenize(std::string_view str, std::string_view delim, bool includeEmpty)
 {
     std::string::size_type lastPos = 0, pos = str.find_first_of(delim, lastPos);
     std::vector<std::string> tokens;
@@ -100,13 +99,17 @@ std::string timeString(double time, bool precise)
 
     std::string suffix = "ms";
     if (time > 1000) {
-        time /= 1000;suffix = "s";
+        time /= 1000;
+        suffix = "s";
         if (time > 60) {
-            time /= 60;suffix = "m";
+            time /= 60;
+            suffix = "m";
             if (time > 60) {
-                time /= 60;suffix = "h";
+                time /= 60;
+                suffix = "h";
                 if (time > 12) {
-                    time /= 12;suffix = "d";
+                    time /= 12;
+                    suffix = "d";
                 }
             }
         }
@@ -122,12 +125,13 @@ std::string timeString(double time, bool precise)
 std::string memString(size_t size, bool precise)
 {
     auto value = (double) size;
-    const char *suffixes[] = {
+    const char* suffixes[] = {
         "B", "KiB", "MiB", "GiB", "TiB", "PiB"
     };
     int suffix = 0;
     while (suffix < 5 && value > 1024.0f) {
-        value /= 1024.0f; ++suffix;
+        value /= 1024.0f;
+        ++suffix;
     }
 
     std::ostringstream os;
@@ -135,6 +139,16 @@ std::string memString(size_t size, bool precise)
        << std::fixed << value << " " << suffixes[suffix];
 
     return os.str();
+}
+
+std::string ReplaceAll(std::string_view str, std::string_view oldSubStr, std::string_view newSubStr)
+{
+    std::string result = str.data();
+
+    for (size_t p = result.find(oldSubStr); p != std::string::npos; p = result.find(oldSubStr))
+        result.replace(p, oldSubStr.length(), newSubStr);
+
+    return result;
 }
 
 } // namespace CGT

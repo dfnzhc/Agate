@@ -11,25 +11,26 @@ find_package(Catch2 CONFIG REQUIRED)
 #target_link_libraries(tests PRIVATE Catch2::Catch2 CGT)
 
 # These examples use the standard separate compilation
-set( SOURCES_IDIOMATIC_EXAMPLES
-    test_uString.cpp
-    test_uMath.cpp
-)
+set(SOURCES_IDIOMATIC_EXAMPLES
+        test.cpp
+        test_uString.cpp
+        test_uMath.cpp
+        )
 
-string( REPLACE ".cpp" "" BASENAMES_IDIOMATIC_EXAMPLES "${SOURCES_IDIOMATIC_EXAMPLES}" )
-set( TARGETS_IDIOMATIC_EXAMPLES ${BASENAMES_IDIOMATIC_EXAMPLES} )
+string(REPLACE ".cpp" "" BASENAMES_IDIOMATIC_EXAMPLES "${SOURCES_IDIOMATIC_EXAMPLES}")
+set(TARGETS_IDIOMATIC_EXAMPLES ${BASENAMES_IDIOMATIC_EXAMPLES})
 
 
-foreach( name ${TARGETS_IDIOMATIC_EXAMPLES} )
-    add_executable( ${name} ${name}.cpp )
-endforeach()
+foreach (name ${TARGETS_IDIOMATIC_EXAMPLES})
+    add_executable(${name} ${name}.cpp)
+endforeach ()
 
 set(ALL_EXAMPLE_TARGETS
-  ${TARGETS_IDIOMATIC_EXAMPLES}
-)
+        ${TARGETS_IDIOMATIC_EXAMPLES}
+        )
 
-foreach( name ${ALL_EXAMPLE_TARGETS} )
-    target_include_directories( ${name} PRIVATE ${CGT_INCLUDE_DIR} )
-    target_link_libraries( ${name} PRIVATE Catch2::Catch2 CGT)
+foreach (name ${ALL_EXAMPLE_TARGETS})
+    target_include_directories(${name} PRIVATE ${CGT_INCLUDE_DIR})
+    target_link_libraries(${name} PRIVATE Catch2::Catch2 CGT)
     set_property(TARGET ${name} PROPERTY CXX_STANDARD 23)
-endforeach()
+endforeach ()

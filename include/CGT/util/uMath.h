@@ -9,14 +9,14 @@ namespace CGT {
 
 /// convert radians to degrees
 template<typename T>
-inline T radToDeg(T value)
+inline T RadToDeg(T value)
 {
     return value * (180 / PI);
 }
 
 /// convert degrees to radians
 template<typename T>
-inline T degToRad(T value)
+inline T DegToRad(T value)
 {
     return value * (PI / 180);
 }
@@ -50,6 +50,26 @@ inline bool FLT_EQUAL(T a, T b)
 //    } else if constexpr(std::is_same_v<double, T>) {
 //        return std::abs(a - b) < EPS_D;
 //    }
+}
+
+/// align val to the next multiple of alignment
+template<typename T>
+inline T AlignUp(T val, T alignment)
+{
+    return (val + alignment - (T) 1) & ~(alignment - (T) 1);
+}
+
+/// align val to the previous multiple of alignment
+template<typename T>
+inline T AlignDown(T val, T alignment)
+{
+    return val & ~(alignment - (T) 1);
+}
+
+template<typename T>
+inline T DivideRoundingUp(T a, T b)
+{
+    return (a + b - (T) 1) / b;
 }
 
 uint32_t RoundUpPow2(uint32_t v);

@@ -5,14 +5,31 @@
 #define CATCH_CONFIG_MAIN
 
 #include <catch2/catch.hpp>
+#include <filesystem>
+#include "CGT/common.h"
+#include "CGT/util/texture.h"
 
-unsigned int Factorial( unsigned int number ) {
-    return number <= 1 ? number : Factorial(number-1)*number;
+namespace fs = std::filesystem;
+
+TEST_CASE("Read File", "[ReadFile]")
+{
+    auto path = fs::current_path();
+    
+    std::vector<char> data;
+    CGT::ReadFile("123.txt", data);
+    
 }
 
-TEST_CASE( "Factorials are computed", "[factorial]" ) {
-    REQUIRE( Factorial(1) == 1 );
-    REQUIRE( Factorial(2) == 2 );
-    REQUIRE( Factorial(3) == 6 );
-    REQUIRE( Factorial(10) == 3628800 );
+TEST_CASE("Texture", "[Texture 2D]")
+{
+    CGT::Texture tex{"awesomeface.png"};
+//    tex.bitmap_.SaveHDR("awesomeface.EXR");
+    tex.bitmap_.Save("awesomefacetest.png");
+    
+    CGT::Texture tex1{"immenstadter_horn_2k.hdr", CGT::TEXTURE_TYPE::TEX_HDR};
+    tex1.bitmap_.Save("hdrSaveTest.hdr");
+    
+    auto vcTexture = CGT::ConvertEquirectangularMapToVerticalCross(tex1.bitmap_);
+    
+    vcTexture.Save("hdrCrossTest.hdr");
 }

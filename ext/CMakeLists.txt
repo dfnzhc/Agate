@@ -12,3 +12,6 @@ target_link_libraries(fmt INTERFACE fmt::fmt-header-only)
 find_package(TBB CONFIG REQUIRED)
 add_library(tbb INTERFACE)
 target_link_libraries(tbb INTERFACE TBB::tbb)
+
+# stb
+set(STB_INCLUDE_DIR stb)
