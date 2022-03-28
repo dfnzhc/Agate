@@ -53,8 +53,8 @@ set(sources
         src/util/bitmap.cpp include/CGT/util/bitmap.h 
         src/util/texture.cpp include/CGT/util/texture.h 
         include/CGT/util/uRandom.h 
-        src/util/uTransform.cpp include/CGT/util/uTransform.h 
-        include/CGT/util/frame.h)
+        src/util/uTransform.cpp include/CGT/util/uTransform.h
+        )
 
 set_source_files_properties(${sources} PROPERTIES LANGUAGE CXX)
 
