@@ -13,7 +13,7 @@ enum class TEXTURE_TYPE{
 
 struct Texture
 {
-    Texture(const std::string& fileName, TEXTURE_TYPE type = TEXTURE_TYPE::TEX_2D);
+    explicit Texture(const std::string& fileName, TEXTURE_TYPE type = TEXTURE_TYPE::TEX_2D);
     
     Bitmap bitmap_;
     TEXTURE_TYPE type_ = TEXTURE_TYPE::TEX_2D;

@@ -11,7 +11,7 @@
 namespace CGT {
 void Bitmap::SaveHDR(const char* filename) const
 {
-    int ret = stbi_write_hdr(filename, w_, h_, comp_, (const float*) data_.data());
+    int ret = stbi_write_hdr(filename, info_.width, info_.height, info_.comp, (const float*) data_.data());
     if (ret == 0) {
         throw CGTException("Bitmap::SaveHDR(): Could not save EXR file {}.", filename);
     }
@@ -19,18 +19,18 @@ void Bitmap::SaveHDR(const char* filename) const
 
 void Bitmap::SavePNG(const char* filename) const
 {
-    uint8_t* rgba = new uint8_t[comp_ * w_ * h_];
+    auto* rgba = new uint8_t[info_.comp * info_.width * info_.height];
     uint8_t* dst = rgba;
-    for (int i = 0; i < h_; ++i) {
-        for (int j = 0; j < w_; ++j) {
+    for (int i = 0; i < info_.height; ++i) {
+        for (int j = 0; j < info_.width; ++j) {
             Vector4f p = GetPixel(j, i);
-            for (int c = 0; c < comp_; ++c)
+            for (int c = 0; c < info_.comp; ++c)
                 dst[c] = (uint8_t) Clamp(255.f * p[c], 0.f, 255.f);
-            dst += comp_;
+            dst += info_.comp;
         }
     }
 
-    int ret = stbi_write_png(filename, w_, h_, comp_, rgba, comp_ * (int) w_);
+    int ret = stbi_write_png(filename, info_.width, info_.height, info_.comp, rgba, info_.comp * (int) info_.width);
     if (ret == 0) {
         throw CGTException("Bitmap::SavePNG(): Could not save PNG file {}.", filename);
     }
@@ -66,12 +66,12 @@ Vector3f texCoordsToXYZ(int i, int j, int faceID, int faceSize)
 
 Bitmap ConvertEquirectangularMapToVerticalCross(const Bitmap& b)
 {
-    const int faceSize = b.w_ / 4;
+    const int faceSize = b.info_.width / 4;
 
     const int w = faceSize * 4;
     const int h = faceSize * 3;
 
-    Bitmap result(w, h, b.comp_, b.fmt_);
+    Bitmap result(w, h, b.info_.comp, b.fmt_);
 
     const Vector2f kFaceOffsets[] =
         {
@@ -83,8 +83,8 @@ Bitmap ConvertEquirectangularMapToVerticalCross(const Bitmap& b)
             Vector2f(faceSize, 2 * faceSize)
         };
 
-    const int clampW = b.w_ - 1;
-    const int clampH = b.h_ - 1;
+    const int clampW = b.info_.width - 1;
+    const int clampH = b.info_.height - 1;
 
     for (int face = 0; face != 6; face++) {
         tbb::parallel_for(0, faceSize,
@@ -124,10 +124,10 @@ Bitmap ConvertEquirectangularMapToVerticalCross(const Bitmap& b)
 
 Bitmap ConvertVerticalCrossToCubeMapFaces(const Bitmap& b)
 {
-    const int faceWidth = b.w_ / 4;
-    const int faceHeight = b.h_ / 3;
+    const int faceWidth = b.info_.width / 4;
+    const int faceHeight = b.info_.height / 3;
 
-    Bitmap cubemap(faceWidth, faceHeight, 6, b.comp_, b.fmt_);
+    Bitmap cubemap(faceWidth, faceHeight, 6, b.info_.comp, b.fmt_);
 
     const uint8_t* src = b.data_.data();
     uint8_t* dst = cubemap.data_.data();
@@ -141,7 +141,7 @@ Bitmap ConvertVerticalCrossToCubeMapFaces(const Bitmap& b)
           | -Y |
           ------
     */
-    const int pixelSize = cubemap.comp_ * Bitmap::GetBytesPerComponent(cubemap.fmt_);
+    const int pixelSize = cubemap.info_.comp * Bitmap::GetBytesPerComponent(cubemap.fmt_);
     for (int face = 0; face != 6; ++face) {
         for (int j = 0; j != faceHeight; ++j) {
             for (int i = 0; i != faceWidth; ++i) {
@@ -180,13 +180,12 @@ Bitmap ConvertVerticalCrossToCubeMapFaces(const Bitmap& b)
                         break;
                 }
 
-                memcpy(dst, src + (y * b.w_ + x) * pixelSize, pixelSize);
+                memcpy(dst, src + (y * b.info_.width + x) * pixelSize, pixelSize);
 
                 dst += pixelSize;
             }
         }
     }
-
     return cubemap;
 }
 } // namespace CGT
