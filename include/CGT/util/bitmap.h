@@ -58,9 +58,8 @@ struct Bitmap
     BitmapInfo info_;
     BitmapFormat fmt_ = BitmapFormat::UnsignedByte;
     std::vector<uint8_t> data_;
-    float cutoff_ = 1.0f;
-    float alpha_test_coverage_ = 1.0;
-    std::vector<Bitmap> mipmaps_;
+//    float cutoff_ = 1.0f;
+//    float alpha_test_coverage_ = 1.0;
 
     constexpr static int GetBytesPerComponent(BitmapFormat fmt)
     {
@@ -95,12 +94,12 @@ struct Bitmap
 
     void Save(const std::string& filename) const;
 
-    void SetAlphaTest(float cutoff)
-    {
-        this->cutoff_ = cutoff;
-        if (this->cutoff_ < 1.0f)
-            alpha_test_coverage_ = GetAlphaCoverage(info_.width, info_.height, 1.0, (int) (255 * cutoff));
-    }
+//    void SetAlphaTest(float cutoff)
+//    {
+//        this->cutoff_ = cutoff;
+//        if (this->cutoff_ < 1.0f)
+//            alpha_test_coverage_ = GetAlphaCoverage(info_.width, info_.height, 1.0, (int) (255 * cutoff));
+//    }
 
 private:
     using setPixel_t = void (Bitmap::*)(int, int, const Vector4f&);

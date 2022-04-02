@@ -54,7 +54,7 @@ set(sources
         src/util/texture.cpp include/CGT/util/texture.h 
         include/CGT/util/uRandom.h 
         src/util/uTransform.cpp include/CGT/util/uTransform.h
-        src/misc/thread_pool.cpp include/CGT/misc/thread_pool.h src/misc/async.cpp include/CGT/misc/async.h include/CGT/misc/async_cache.h)
+        src/misc/thread_pool.cpp include/CGT/misc/thread_pool.h src/misc/async.cpp include/CGT/misc/async.h include/CGT/misc/async_cache.h src/util/color_conversion.cpp include/CGT/misc/color_conversion.h src/util/dxgi_format_helper.cpp include/CGT/misc/dxgi_format_helper.h src/util/hash.cpp include/CGT/util/hash.h include/CGT/misc/ring.h src/model/gltf/gltf_common.cpp src/model/gltf/gltf_common.h)
 
 set_source_files_properties(${sources} PROPERTIES LANGUAGE CXX)
 
