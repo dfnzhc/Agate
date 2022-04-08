@@ -13,8 +13,6 @@ find_package(Catch2 CONFIG REQUIRED)
 # These examples use the standard separate compilation
 set(SOURCES_IDIOMATIC_EXAMPLES
         test.cpp
-        test_uString.cpp
-        test_uMath.cpp
         )
 
 string(REPLACE ".cpp" "" BASENAMES_IDIOMATIC_EXAMPLES "${SOURCES_IDIOMATIC_EXAMPLES}")
