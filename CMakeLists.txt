@@ -1,6 +1,6 @@
 ﻿cmake_minimum_required(VERSION 3.21)
 
-project(CGT VERSION 0.1 LANGUAGES CXX C CUDA)
+project(Agate VERSION 0.1 LANGUAGES CXX C CUDA)
 
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -14,26 +14,13 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
             "MinSizeRel" "RelWithDebInfo")
 endif ()
 
-# Configuration options
-option(CGT_FLOAT_AS_DOUBLE "Use 64-bit floats" ON)
-option(CGT_DBG_LOGGING "Enable debug logging" ON)
-option(CGT_USE_GPU "Enable GPU functionality" ON)
-
 if (MSVC)
-    list(APPEND CGT_DEFINITIONS "_CRT_SECURE_NO_WARNINGS")
-    list(APPEND CGT_DEFINITIONS "_ENABLE_EXTENDED_ALIGNED_STORAGE")
-endif ()
-
-if (CGT_FLOAT_AS_DOUBLE)
-    list(APPEND CGT_DEFINITIONS "CGT_FLOAT_AS_DOUBLE")
-endif ()
-
-if (CGT_DBG_LOGGING)
-    list(APPEND CGT_DEFINITIONS "CGT_DBG_LOGGING")
+    list(APPEND AGATE_DEFINITIONS "_CRT_SECURE_NO_WARNINGS")
+    list(APPEND AGATE_DEFINITIONS "_ENABLE_EXTENDED_ALIGNED_STORAGE")
 endif ()
 
 if (WIN32)
-    list(APPEND CGT_DEFINITIONS "CGT_IN_WINDOWS" "NOMINMAX" "WIN32_LEAN_AND_MEAN")
+    list(APPEND AGATE_DEFINITIONS "AGATE_IN_WINDOWS" "NOMINMAX" "WIN32_LEAN_AND_MEAN")
 endif (WIN32)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -55,8 +42,8 @@ else ()
 endif ()
 
 # optix
-set(CGT_OPTIX7_PATH "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.4.0")
-find_path(OPTIX7_INCLUDE_DIR optix_7_host.h ${CGT_OPTIX7_PATH}/include)
+set(AGATE_OPTIX7_PATH "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.4.0")
+find_path(OPTIX7_INCLUDE_DIR optix_7_host.h ${AGATE_OPTIX7_PATH}/include)
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(OptiX7 DEFAULT_MSG OPTIX7_INCLUDE_DIR)
 mark_as_advanced(OPTIX7_INCLUDE_DIR)
@@ -64,15 +51,13 @@ set(OPTIX_INCLUDE_DIR "${OPTIX7_INCLUDE_DIR}")
 
 # cuda
 find_package(CUDAToolkit 11.0 REQUIRED)
-if (CGT_USE_GPU)
-    if (NOT ("${OPTIX_INCLUDE_DIR}" STREQUAL "") AND ${CUDAToolkit_FOUND})
-        list(APPEND CGT_DEFINITIONS "CGT_USE_GPU")
-    endif ()
-endif ()
+
 
 set(HEADERS
-        include/CGT/CGT.h
-        src/CGT.cpp src/util/Log.cpp include/CGT/util/Log.h)
+        include/Agate/Agate.h
+        src/Agate.cpp)
+
+include_directories(include)
 
 #set(SOURCES
 #        )
@@ -81,32 +66,26 @@ source_group("headers" FILES ${HEADERS})
 source_group("sources" FILES ${SOURCES})
 
 
-if (CGT_USE_GPU)
-    set_source_files_properties(
-            src/CGT.cpp src/util/Log.cpp
-            
-            PROPERTIES LANGUAGE CUDA
-    )
-endif ()
+#    set_source_files_properties(
+#            src/Agate.cpp src/util/Log.cpp
+#            
+#            PROPERTIES LANGUAGE CUDA
+#    )
 
-add_library(CGT STATIC
+add_library(Agate STATIC
         ${HEADERS}
         #        ${SOURCES}
         )
 
-if (CGT_USE_GPU)
-    set_property(TARGET CGT PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+target_compile_definitions(Agate PRIVATE ${AGATE_DEFINITIONS})
+set_property(TARGET Agate PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+set_property(TARGET Agate PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-endif ()
-
-target_compile_definitions(CGT PRIVATE ${CGT_DEFINITIONS})
-set_property(TARGET CGT PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-
-target_link_libraries(CGT
+target_link_libraries(Agate
         CUDA::cuda_driver
         )
 
-target_include_directories(CGT
+target_include_directories(Agate
         PUBLIC
         include
         ${OPTIX_INCLUDE_DIR})
