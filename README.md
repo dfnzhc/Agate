@@ -1,3 +1,3 @@
-# CGT
+# Agate
 
-CGT(Computer Graphics Toolset) is something useful to computer graphics development.
+Agate is a GPU renderer based on CUDA and Optix7.
