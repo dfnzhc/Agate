@@ -10,6 +10,7 @@
 
 namespace Agate {
 
+
 class AgateWindow
 {
 public:

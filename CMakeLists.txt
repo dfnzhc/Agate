@@ -67,7 +67,7 @@ set(SOURCES
         src/main.cpp
         src/pch.cpp
         src/Common/Window.cpp
-        src/Common/Common.cpp include/Agate/Common/Common.h)
+        src/Common/Common.cpp include/Agate/Common/Common.h include/Agate/util/Timer.h)
 
 source_group("headers" FILES ${HEADERS})
 source_group("sources" FILES ${SOURCES})

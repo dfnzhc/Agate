@@ -33,5 +33,4 @@
 #include <windowsx.h>
 #endif
 
-#include "Agate/Common/Common.h"
 #include "Agate/Common/Log.h"
