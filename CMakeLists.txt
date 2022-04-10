@@ -52,41 +52,52 @@ set(OPTIX_INCLUDE_DIR "${OPTIX7_INCLUDE_DIR}")
 # cuda
 find_package(CUDAToolkit 11.0 REQUIRED)
 
+add_subdirectory(ext)
 
 set(HEADERS
         include/Agate/Agate.h
-        src/Agate.cpp)
+        include/Agate/Common/Log.h include/pch.h
+        include/Agate/Common/Window.h
+        include/Agate/util/vector_math.h)
 
 include_directories(include)
 
-#set(SOURCES
-#        )
+set(SOURCES
+        src/Agate.cpp
+        src/main.cpp
+        src/pch.cpp
+        src/Common/Window.cpp
+        src/Common/Common.cpp include/Agate/Common/Common.h)
 
 source_group("headers" FILES ${HEADERS})
 source_group("sources" FILES ${SOURCES})
 
 
-#    set_source_files_properties(
-#            src/Agate.cpp src/util/Log.cpp
-#            
-#            PROPERTIES LANGUAGE CUDA
-#    )
+set_source_files_properties(
+        include/Agate/util/vector_math.h
+        
+        PROPERTIES LANGUAGE CUDA
+)
 
-add_library(Agate STATIC
+add_executable(Agate
         ${HEADERS}
-        #        ${SOURCES}
+        ${SOURCES}
         )
 
 target_compile_definitions(Agate PRIVATE ${AGATE_DEFINITIONS})
+target_precompile_headers(Agate PRIVATE include/pch.h)
 set_property(TARGET Agate PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 set_property(TARGET Agate PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 target_link_libraries(Agate
         CUDA::cuda_driver
+        libglfw
+        spdlog
         )
 
 target_include_directories(Agate
         PUBLIC
         include
-        ${OPTIX_INCLUDE_DIR})
+        ${OPTIX_INCLUDE_DIR}
+        ${CUDAToolkit_INCLUDE_DIRS})
 
