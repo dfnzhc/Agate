@@ -51,14 +51,15 @@ set(OPTIX_INCLUDE_DIR "${OPTIX7_INCLUDE_DIR}")
 
 # cuda
 find_package(CUDAToolkit 11.0 REQUIRED)
+find_package(OpenGL REQUIRED)
 
 add_subdirectory(ext)
 
 set(HEADERS
         include/Agate/Agate.h
-        include/Agate/Common/Log.h include/pch.h
-        include/Agate/Common/Window.h
-        include/Agate/util/vector_math.h)
+        include/Agate/Core/Log.h include/pch.h
+        include/Agate/Core/Window.h
+        include/Agate/Util/vector_math.h)
 
 include_directories(include)
 
@@ -66,15 +67,15 @@ set(SOURCES
         src/Agate.cpp
         src/main.cpp
         src/pch.cpp
-        src/Common/Window.cpp
-        src/Common/Common.cpp include/Agate/Common/Common.h include/Agate/util/Timer.h)
+        src/Core/Window.cpp
+        src/Core/Common.cpp include/Agate/Core/Common.h include/Agate/Util/Timer.h include/Agate/Core/Error.h src/Core/Aplication.cpp include/Agate/Core/Aplication.h src/Core/Optix_Renderer.cpp include/Agate/Core/Optix_Renderer.h)
 
 source_group("headers" FILES ${HEADERS})
 source_group("sources" FILES ${SOURCES})
 
 
 set_source_files_properties(
-        include/Agate/util/vector_math.h
+        include/Agate/Util/vector_math.h
         
         PROPERTIES LANGUAGE CUDA
 )
@@ -91,13 +92,18 @@ set_property(TARGET Agate PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 target_link_libraries(Agate
         CUDA::cuda_driver
+        ${optix_LIBRARY}
+        OpenGL::GL
         libglfw
         spdlog
+        glew
         )
 
 target_include_directories(Agate
         PUBLIC
         include
         ${OPTIX_INCLUDE_DIR}
-        ${CUDAToolkit_INCLUDE_DIRS})
+        ${CUDAToolkit_INCLUDE_DIRS}
+        ${GLEW_INCLUDE_DIRS}
+        )
 
