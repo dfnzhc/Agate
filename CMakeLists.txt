@@ -55,35 +55,69 @@ find_package(OpenGL REQUIRED)
 
 add_subdirectory(ext)
 
+include_directories("." "include")
+
 set(HEADERS
         include/Agate/Agate.h
         include/Agate/Core/Log.h include/pch.h
         include/Agate/Core/Window.h
-        include/Agate/Util/vector_math.h)
+        include/Agate/Core/Common.h
+        include/Agate/Util/Timer.h
+        include/Agate/Core/Error.h
+        include/Agate/Core/Aplication.h
+        include/Agate/Core/OptixRenderer.h
+        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h)
 
-include_directories(include)
 
 set(SOURCES
         src/Agate.cpp
         src/main.cpp
         src/pch.cpp
         src/Core/Window.cpp
-        src/Core/Common.cpp include/Agate/Core/Common.h include/Agate/Util/Timer.h include/Agate/Core/Error.h src/Core/Aplication.cpp include/Agate/Core/Aplication.h src/Core/Optix_Renderer.cpp include/Agate/Core/Optix_Renderer.h)
+        src/Core/Common.cpp
+        src/Core/Aplication.cpp
+        src/Core/OptixRenderer.cpp
+        )
+
+
+set(SHADERS
+        include/Agate/Shader/RayGeneration.cu
+        include/Agate/Shader/Miss.cu
+        include/Agate/Shader/ClosestHit.cu
+        include/Agate/Shader/AnyHit.cu
+        )
+
+
+set(SHADERS_HEADERS
+
+        include/Agate/Shader/vector_math.h include/Agate/Shader/VertexInfo.h include/Agate/Shader/LaunchParameter.h)
+
+NVCUDA_COMPILE_PTX(SOURCES ${SHADERS}
+        DEPENDENCIES ${SHADERS_HEADERS}
+        TARGET_PATH "${PTX_TARGET_DIR}/PTX"
+        GENERATED_FILES PTX_SOURCES
+        NVCC_OPTIONS "--gpu-architecture=compute_50" "--use_fast_math" "--relocatable-device-code=true" "--generate-line-info" "-Wno-deprecated-gpu-targets" "-I${OPTIX_INCLUDE_DIR}" "-I${CMAKE_CURRENT_SOURCE_DIR}/include/Agata/Shader"
+        )
 
 source_group("headers" FILES ${HEADERS})
 source_group("sources" FILES ${SOURCES})
+source_group("shaders" FILES ${SHADERS})
+source_group("shaders_headers" FILES ${SHADERS_HEADERS})
+source_group("ptx" FILES ${PTX_SOURCES})
 
 
-set_source_files_properties(
-        include/Agate/Util/vector_math.h
-        
-        PROPERTIES LANGUAGE CUDA
-)
+#set_source_files_properties(
+#        include/Agate/Shader/vector_math.h
+#
+#        PROPERTIES LANGUAGE CUDA
+#)
 
 add_executable(Agate
         ${HEADERS}
         ${SOURCES}
-        )
+        ${SHADERS_HEADERS}
+        ${SHADERS}
+        ${PTX_SOURCES})
 
 target_compile_definitions(Agate PRIVATE ${AGATE_DEFINITIONS})
 target_precompile_headers(Agate PRIVATE include/pch.h)

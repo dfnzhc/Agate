@@ -7,31 +7,44 @@
 #include <cuda.h>
 #include <optix.h>
 #include <driver_types.h>
+#include <Agate/Util/CudaBuffer.h>
 
 namespace Agate {
 
+
+
 class OptixRenderer
 {
-    CUcontext          cuda_context_{};
-    CUstream           stream_{};
-    cudaDeviceProp     device_prop_{};
+    CUcontext cuda_context_{};
+    CUstream stream_{};
+    cudaDeviceProp device_prop_{};
 
     OptixDeviceContext optix_context_{};
 
-    OptixPipeline               pipeline_{};
+    OptixPipeline pipeline_{};
     OptixPipelineCompileOptions pipeline_compile_options_ = {};
-    OptixPipelineLinkOptions    pipeline_link_options_ = {};
+    OptixPipelineLinkOptions pipeline_link_options_ = {};
 
-    OptixModule                 module_{};
-    OptixModuleCompileOptions   module_compile_options_ = {};
+    OptixModule module_{};
+    OptixModuleCompileOptions module_compile_options_ = {};
+
+    OptixShaderBindingTable sbt = {};
+
+    std::vector<OptixProgramGroup> raygenPGs_;
+    std::vector<OptixProgramGroup> missPGs_;
+    std::vector<OptixProgramGroup> hitgroupPGs_;
+
+    CudaBuffer raygen_records_buf_;
+    CudaBuffer miss_records_buf_;
+    CudaBuffer hitgroup_records_buf_;
 
     /// 用于初始化 OptiX
     void InitOptiX();
- 
+
     /// 创建和配置一个 optix 设备上下文
     void CreateContext();
 
-    void CreateModule();
+    void SetCompileOptions();
 
     void CreateRaygenPrograms();
     void CreateMissPrograms();
@@ -47,6 +60,9 @@ public:
 
     OptixRenderer(const OptixRenderer&) = delete;
     OptixRenderer& operator=(const OptixRenderer&) = delete;
+    
+    
+    void Resize(const int2& newSize);
 };
 
 } // namespace Agate

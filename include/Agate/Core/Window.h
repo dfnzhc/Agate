@@ -30,7 +30,7 @@ public:
     /// open the window and runs the window's events
     void Run();
 
-    void Resize(const float2& newSize);
+    void Resize(const int2& newSize);
 
     bool ShouldClose() { return glfwWindowShouldClose(handle_); }
     bool WasWindowResized() const { return window_resized; }

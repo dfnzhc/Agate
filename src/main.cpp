@@ -3,7 +3,7 @@
 //
 #include <Agate/Core/Window.h>
 #include <Agate/Core/Error.h>
-#include <Agate/Core/Optix_Renderer.h>
+#include <Agate/Core/OptixRenderer.h>
 
 int main()
 {

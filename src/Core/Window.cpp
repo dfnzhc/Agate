@@ -34,7 +34,7 @@ void AgateWindow::Run()
 {
     int width, height;
     glfwGetFramebufferSize(handle_, &width, &height);
-    Resize({static_cast<float>(width), static_cast<float>(height)});
+    Resize({width, height});
 
     while (!ShouldClose()) {
         glfwPollEvents();
@@ -46,7 +46,7 @@ void AgateWindow::Run()
     }
 }
 
-void AgateWindow::Resize(const float2& newSize)
+void AgateWindow::Resize(const int2& newSize)
 {
 
 }
