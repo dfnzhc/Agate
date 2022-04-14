@@ -65,11 +65,6 @@ OptixRenderer::~OptixRenderer()
 void OptixRenderer::InitOptiX()
 {
     LOG_INFO("初始化 Optix...")
-    /// Initialize CUDA driver API
-//    CUresult cuRes = cuInit(0);
-//    if (cuRes != CUDA_SUCCESS) {
-//        throw AgateException("初始化 CUDA API 失败.");
-//    }
 
     int version = 0;
     CUDA_CHECK(cudaDriverGetVersion(&version));
