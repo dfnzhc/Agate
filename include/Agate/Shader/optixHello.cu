@@ -4,11 +4,17 @@
 
 namespace Agate {
 
-extern "C" __constant__ OptixLaunchParams optixLaunchParams;
+extern "C" __constant__ OptixLaunchParams params;
+
+extern "C" __global__ void __closesthit__radiance() { /*! for this simple example, this will remain empty */ }
+
+extern "C" __global__ void __anyhit__radiance() { /*! for this simple example, this will remain empty */ }
+
+extern "C" __global__ void __miss__radiance() { /*! for this simple example, this will remain empty */ }
 
 extern "C" __global__ void __raygen__renderFrame()
 {
-    const int frameID = optixLaunchParams.frameID;
+    const int frameID = params.frameID; 
 
     const uint3 theLaunchIndex = optixGetLaunchIndex();
     if (frameID == 0 &&
@@ -20,8 +26,8 @@ extern "C" __global__ void __raygen__renderFrame()
         // otherwise they'd not get used)
         printf("############################################\n");
         printf("Hello world from OptiX 7 raygen program!\n(within a %ix%i-sized launch)\n",
-               optixLaunchParams.frame_buffer_size.x,
-               optixLaunchParams.frame_buffer_size.y);
+               params.frame_buffer_size.x,
+               params.frame_buffer_size.y);
         printf("############################################\n");
     }
 
@@ -43,8 +49,8 @@ extern "C" __global__ void __raygen__renderFrame()
         | (r << 0) | (g << 8) | (b << 16);
 
     // and write to frame buffer ...
-    const uint32_t fbIndex = ix + iy * optixLaunchParams.frame_buffer_size.x;
-    optixLaunchParams.color_buffer[fbIndex] = rgba;
+    const uint32_t fbIndex = ix + iy * params.frame_buffer_size.x;
+    params.color_buffer[fbIndex] = rgba;
 }
 
 } // namespace Agate

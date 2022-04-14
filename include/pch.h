@@ -25,7 +25,6 @@
 #include <wrl.h>
 #include <limits>
 #include <set>
-#include <ranges>
 
 #ifdef AGATE_IN_WINDOWS
 #include <Windows.h>

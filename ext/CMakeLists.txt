@@ -17,3 +17,6 @@ target_link_libraries(spdlog INTERFACE spdlog::spdlog spdlog::spdlog_header_only
 find_package(GLEW REQUIRED CONFIG)
 add_library(glew INTERFACE)
 target_link_libraries(glew INTERFACE GLEW::GLEW)
+
+# stb
+set(STB_INCLUDE_DIR stb)

@@ -6,6 +6,8 @@
 #include "Agate/Core/Error.h"
 
 #include <optix_function_table_definition.h>
+#include <optix_stack_size.h>
+
 #include <Agate/Shader/VertexInfo.h>
 #include <Agate/Util/ReadFile.h>
 
@@ -50,6 +52,10 @@ OptixRenderer::OptixRenderer()
     CreatePipeline();
 
     BuildSBT();
+
+    params_buffer_.Resize(sizeof(params_));
+
+    LOG_INFO("Optix 渲染器初始化完成！");
 }
 OptixRenderer::~OptixRenderer()
 {
@@ -60,23 +66,23 @@ void OptixRenderer::InitOptiX()
 {
     LOG_INFO("初始化 Optix...")
     /// Initialize CUDA driver API
-    CUresult cuRes = cuInit(0);
-    if (cuRes != CUDA_SUCCESS) {
-        throw AgateException("初始化 CUDA API 失败.");
-    }
+//    CUresult cuRes = cuInit(0);
+//    if (cuRes != CUDA_SUCCESS) {
+//        throw AgateException("初始化 CUDA API 失败.");
+//    }
 
     int version = 0;
-    CUDA_CHECK(cuDriverGetVersion(&version))
+    CUDA_CHECK(cudaDriverGetVersion(&version));
 
     int major = version / 1000;
     int minor = (version - major * 1000) / 10;
     LOG_TRACE("CUDA 版本为：{}.{}", major, minor)
 
     int deviceCount = 0;
-    CUDA_CHECK(cuDeviceGetCount(&deviceCount))
+    CUDA_CHECK(cudaGetDeviceCount(&deviceCount));
     LOG_TRACE("发现 {} 个 CUDA 设备.", deviceCount)
 
-    OPTIX_CHECK(optixInit())
+    OPTIX_CHECK(optixInit());
 }
 
 void OptixRenderer::CreateContext()
@@ -84,37 +90,49 @@ void OptixRenderer::CreateContext()
     LOG_INFO("创建 Optix 上下文...")
 
     const int DeviceID = 0;
-    CUDA_CHECK(cudaSetDevice(DeviceID))
-    CUDA_CHECK(cudaStreamCreate(&stream_))
+    CUDA_CHECK(cudaSetDevice(DeviceID));
+    CUDA_CHECK(cudaStreamCreate(&stream_));
 
     cudaGetDeviceProperties(&device_prop_, DeviceID);
     LOG_TRACE("当前使用的 GPU 设备 {}.", device_prop_.name)
 
-    CUDA_CHECK(cuCtxGetCurrent(&cuda_context_))
-
-    OPTIX_CHECK(optixDeviceContextCreate(cuda_context_, nullptr, &optix_context_))
-    OPTIX_CHECK(optixDeviceContextSetLogCallback
-                    (optix_context_, ContextLogCB, nullptr, 4))
+    OptixDeviceContextOptions options = {};
+    options.logCallbackFunction = &ContextLogCB;
+    options.logCallbackLevel = 4;
+    OPTIX_CHECK(optixDeviceContextCreate(cuda_context_, &options, &optix_context_));
 }
 
 void OptixRenderer::SetCompileOptions()
 {
     LOG_INFO("创建 Optix module...")
 
-    module_compile_options_.maxRegisterCount = 50;
+    module_compile_options_.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
     module_compile_options_.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
     module_compile_options_.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
 
     pipeline_compile_options_ = {};
-    // 与 OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING 有什么区别？
-    pipeline_compile_options_.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+    // 与 OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS 有什么区别？
+    pipeline_compile_options_.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
     pipeline_compile_options_.usesMotionBlur = false;
     pipeline_compile_options_.numPayloadValues = 2;
     pipeline_compile_options_.numAttributeValues = 2;
-    pipeline_compile_options_.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
-    pipeline_compile_options_.pipelineLaunchParamsVariableName = "SystemParameters";
-    pipeline_link_options_.maxTraceDepth = 2;
 
+    // TODO: should be OPTIX_EXCEPTION_FLAG_STACK_OVERFLOW;   
+    pipeline_compile_options_.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
+    pipeline_compile_options_.pipelineLaunchParamsVariableName = "params";
+
+    // TODO 传入 ptx 文件参数
+    const std::string ptxCode = ReadPTX("./ptx/optixHello.ptx");
+
+    OPTIX_LOG_V();
+    OPTIX_CHECK_LOG(optixModuleCreateFromPTX(optix_context_,
+                                             &module_compile_options_,
+                                             &pipeline_compile_options_,
+                                             ptxCode.c_str(),
+                                             ptxCode.size(),
+                                             log, &sizeof_log,
+                                             &module_
+    ));
 }
 
 void OptixRenderer::CreateRaygenPrograms()
@@ -123,33 +141,21 @@ void OptixRenderer::CreateRaygenPrograms()
 
     raygenPGs_.resize(1);
 
-    // TODO 载入 ptx
-    const std::string ptxCode = ReadPTX("./PTX/RayGeneration.ptx");
-
-    OptixModule moduleRaygeneration;
-    OPTIX_CHECK(optixModuleCreateFromPTX(optix_context_,
-                                         &module_compile_options_,
-                                         &pipeline_compile_options_,
-                                         ptxCode.c_str(),
-                                         ptxCode.size(),
-                                         nullptr, nullptr,
-                                         &moduleRaygeneration
-    ))
-
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
     pgDesc.flags = OPTIX_PROGRAM_GROUP_FLAGS_NONE;
-    pgDesc.raygen.module = moduleRaygeneration;
+    pgDesc.raygen.module = module_;
     pgDesc.raygen.entryFunctionName = "__raygen__renderFrame";
 
+    OPTIX_LOG_V();
     OPTIX_CHECK(optixProgramGroupCreate(optix_context_,
                                         &pgDesc,
                                         1,
                                         &pgOptions,
-                                        nullptr, nullptr,
+                                        log, &sizeof_log,
                                         &raygenPGs_[0]
-    ))
+    ));
 }
 
 void OptixRenderer::CreateMissPrograms()
@@ -158,33 +164,21 @@ void OptixRenderer::CreateMissPrograms()
 
     missPGs_.resize(1);
 
-    // TODO 载入 ptx
-    const std::string ptxCode = ReadPTX("./PTX/Miss.ptx");
-
-    OptixModule moduleMiss;
-    OPTIX_CHECK(optixModuleCreateFromPTX(optix_context_,
-                                         &module_compile_options_,
-                                         &pipeline_compile_options_,
-                                         ptxCode.c_str(),
-                                         ptxCode.size(),
-                                         nullptr, nullptr,
-                                         &moduleMiss
-    ))
-
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
     pgDesc.flags = OPTIX_PROGRAM_GROUP_FLAGS_NONE;
-    pgDesc.raygen.module = moduleMiss;
+    pgDesc.raygen.module = module_;
     pgDesc.raygen.entryFunctionName = "__miss__radiance";
 
+    OPTIX_LOG_V();
     OPTIX_CHECK(optixProgramGroupCreate(optix_context_,
                                         &pgDesc,
                                         1,
                                         &pgOptions,
-                                        nullptr, nullptr,
+                                        log, &sizeof_log,
                                         &missPGs_[0]
-    ))
+    ));
 }
 
 void OptixRenderer::CreateHitgroupPrograms()
@@ -193,51 +187,30 @@ void OptixRenderer::CreateHitgroupPrograms()
 
     hitgroupPGs_.resize(1);
 
-    // TODO 载入 ptx
-    const std::string ptxCode_ClosestHit = ReadPTX("./PTX/ClosestHit.ptx");
-    const std::string ptxCode_AnyHit = ReadPTX("./PTX/AnyHit.ptx");
-
-    OptixModule moduleClosestHit;
-    OptixModule moduleAnyHit;
-    OPTIX_CHECK(optixModuleCreateFromPTX(optix_context_,
-                                         &module_compile_options_,
-                                         &pipeline_compile_options_,
-                                         ptxCode_ClosestHit.c_str(),
-                                         ptxCode_ClosestHit.size(),
-                                         nullptr, nullptr,
-                                         &moduleClosestHit
-    ))
-
-    OPTIX_CHECK(optixModuleCreateFromPTX(optix_context_,
-                                         &module_compile_options_,
-                                         &pipeline_compile_options_,
-                                         ptxCode_AnyHit.c_str(),
-                                         ptxCode_AnyHit.size(),
-                                         nullptr, nullptr,
-                                         &moduleAnyHit
-    ))
-
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
     pgDesc.flags = OPTIX_PROGRAM_GROUP_FLAGS_NONE;
-    pgDesc.hitgroup.moduleCH = moduleClosestHit;
+    pgDesc.hitgroup.moduleCH = module_;
     pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__radiance";
-    pgDesc.hitgroup.moduleAH = moduleAnyHit;
+    pgDesc.hitgroup.moduleAH = module_;
     pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__radiance";
 
+    OPTIX_LOG_V();
     OPTIX_CHECK(optixProgramGroupCreate(optix_context_,
                                         &pgDesc,
                                         1,
                                         &pgOptions,
-                                        nullptr, nullptr,
+                                        log, &sizeof_log,
                                         &hitgroupPGs_[0]
-    ))
+    ));
 }
 
 void OptixRenderer::CreatePipeline()
 {
     LOG_INFO("创建着色器流水线...")
+
+    OPTIX_LOG_V();
     std::vector<OptixProgramGroup> program_groups;
     for (auto pg : raygenPGs_)
         program_groups.push_back(pg);
@@ -246,70 +219,38 @@ void OptixRenderer::CreatePipeline()
     for (auto pg : hitgroupPGs_)
         program_groups.push_back(pg);
 
+    const uint32_t max_trace_depth = 0;
+    pipeline_link_options_.maxTraceDepth = max_trace_depth;
+    pipeline_link_options_.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+
     OPTIX_CHECK(optixPipelineCreate(optix_context_,
                                     &pipeline_compile_options_,
                                     &pipeline_link_options_,
                                     program_groups.data(),
                                     (int) program_groups.size(),
-                                    nullptr, nullptr,
+                                    log, &sizeof_log,
                                     &pipeline_
     ));
 
-
     // STACK SIZES
-    OptixStackSizes stackSizesPipeline = {};
-    for (auto& program_group : program_groups) {
-        OptixStackSizes stackSizes;
-
-        OPTIX_CHECK(optixProgramGroupGetStackSize(program_group, &stackSizes));
-
-        stackSizesPipeline.cssRG = std::max(stackSizesPipeline.cssRG, stackSizes.cssRG);
-        stackSizesPipeline.cssMS = std::max(stackSizesPipeline.cssMS, stackSizes.cssMS);
-        stackSizesPipeline.cssCH = std::max(stackSizesPipeline.cssCH, stackSizes.cssCH);
-        stackSizesPipeline.cssAH = std::max(stackSizesPipeline.cssAH, stackSizes.cssAH);
-        stackSizesPipeline.cssIS = std::max(stackSizesPipeline.cssIS, stackSizes.cssIS);
-        stackSizesPipeline.cssCC = std::max(stackSizesPipeline.cssCC, stackSizes.cssCC);
-        stackSizesPipeline.dssDC = std::max(stackSizesPipeline.dssDC, stackSizes.dssDC);
+    OptixStackSizes stack_sizes = {};
+    for (auto& prog_group : program_groups) {
+        OPTIX_CHECK(optixUtilAccumulateStackSizes(prog_group, &stack_sizes));
     }
 
-    // Temporaries
-    const unsigned int cssCCTree =
-        stackSizesPipeline.cssCC; // Should be 0. No continuation callables in this pipeline. // maxCCDepth == 0
-    const unsigned int cssCHOrMSPlusCCTree = std::max(stackSizesPipeline.cssCH, stackSizesPipeline.cssMS) + cssCCTree;
+    uint32_t direct_callable_stack_size_from_traversal;
+    uint32_t direct_callable_stack_size_from_state;
+    uint32_t continuation_stack_size;
+    OPTIX_CHECK(optixUtilComputeStackSizes(&stack_sizes, max_trace_depth,
+                                           0,  // maxCCDepth
+                                           0,  // maxDCDEpth
+                                           &direct_callable_stack_size_from_traversal,
+                                           &direct_callable_stack_size_from_state, &continuation_stack_size));
 
-    // Arguments
-    const unsigned int directCallableStackSizeFromTraversal =
-        stackSizesPipeline.dssDC; // maxDCDepth == 1 // FromTraversal: DC is invoked from IS or AH.      // Possible stack size optimizations.
-    const unsigned int directCallableStackSizeFromState =
-        stackSizesPipeline.dssDC; // maxDCDepth == 1 // FromState:     DC is invoked from RG, MS, or CH. // Possible stack size optimizations.
-    const unsigned int continuationStackSize = stackSizesPipeline.cssRG + cssCCTree
-        + cssCHOrMSPlusCCTree * (std::max(1u, pipeline_link_options_.maxTraceDepth) - 1u) +
-        std::min(1u, pipeline_link_options_.maxTraceDepth)
-            * std::max(cssCHOrMSPlusCCTree, stackSizesPipeline.cssAH + stackSizesPipeline.cssIS);
-    // "The maxTraversableGraphDepth responds to the maximum number of traversables visited when calling optixTrace. 
-    // Every acceleration structure and motion transform count as one level of traversal."
-    // Render Graph is at maximum: IAS -> GAS
-    const unsigned int maxTraversableGraphDepth = 1;
-
-//    OPTIX_CHECK(optixPipelineSetStackSize(pipeline_,
-//                                          directCallableStackSizeFromTraversal,
-//                                          directCallableStackSizeFromState,
-//                                          continuationStackSize,
-//                                          maxTraversableGraphDepth));
-    OPTIX_CHECK(optixPipelineSetStackSize
-                    (/* [in] The pipeline to configure the stack size for */
-                        pipeline_,
-                        /* [in] The direct stack size requirement for direct
-                           callables invoked from IS or AH. */
-                        2 * 1024,
-                        /* [in] The direct stack size requirement for direct
-                           callables invoked from RG, MS, or CH.  */
-                        2 * 1024,
-                        /* [in] The continuation stack requirement. */
-                        2 * 1024,
-                        /* [in] The maximum depth of a traversable graph
-                           passed to trace. */
-                        1));
+    OPTIX_CHECK(optixPipelineSetStackSize(pipeline_, direct_callable_stack_size_from_traversal,
+                                          direct_callable_stack_size_from_state, continuation_stack_size,
+                                          2  // maxTraversableDepth
+    ));
 }
 
 void OptixRenderer::BuildSBT()
@@ -339,7 +280,7 @@ void OptixRenderer::BuildSBT()
     }
     miss_records_buf_.Alloc_And_Upload(missRecords);
     sbt.missRecordBase = miss_records_buf_.device_ptr();
-    sbt.missRecordBase = static_cast<int>(missRecords.size());
+    sbt.missRecordCount = static_cast<int>(missRecords.size());
     sbt.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 
 
@@ -351,13 +292,55 @@ void OptixRenderer::BuildSBT()
     // TODO 设置物体信息
     for (auto& missPGs : raygenPGs_) {
         SbtRecordHeader rec{};
-        OPTIX_CHECK(optixSbtRecordPackHeader(missPGs, &rec))
+        OPTIX_CHECK(optixSbtRecordPackHeader(missPGs, &rec));
         hitgroupRecords.push_back(rec);
     }
     hitgroup_records_buf_.Alloc_And_Upload(hitgroupRecords);
     sbt.hitgroupRecordBase = hitgroup_records_buf_.device_ptr();
-    sbt.hitgroupRecordBase = static_cast<int>(hitgroupRecords.size());
+    sbt.hitgroupRecordCount = static_cast<int>(hitgroupRecords.size());
     sbt.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
+}
+
+void OptixRenderer::Draw()
+{
+    if (params_.frame_buffer_size.x == 0)
+        return;
+
+    params_buffer_.Upload(&params_, 1);
+    params_.frameID++;
+
+    OPTIX_CHECK(optixLaunch(/*! pipeline we're launching launch: */
+        pipeline_, stream_,
+        /*! parameters and SBT */
+        params_buffer_.device_ptr(),
+        params_buffer_.size_in_bytes,
+        &sbt,
+        /*! dimensions of the launch: */
+        params_.frame_buffer_size.x,
+        params_.frame_buffer_size.y,
+        1));
+
+    CUDA_SYNC_CHECK();
+}
+
+void OptixRenderer::Resize(const int2& newSize)
+{
+    if (newSize.x == 0 || newSize.y == 0)
+        return;
+
+    // resize our cuda frame buffer
+    color_buffer_.Resize(newSize.x * newSize.y * sizeof(uint32_t));
+
+    // update the launch parameters that we'll pass to the optix
+    // launch:
+    params_.frame_buffer_size = newSize;
+    params_.color_buffer = (uint32_t*) color_buffer_.dev_ptr;
+}
+
+void OptixRenderer::DownloadPixels(uint32_t* pixels)
+{
+    color_buffer_.Download(pixels,
+                           params_.frame_buffer_size.x * params_.frame_buffer_size.y);
 }
 
 } // namespace Agate

@@ -8,6 +8,7 @@
 #include <optix.h>
 #include <driver_types.h>
 #include <Agate/Util/CudaBuffer.h>
+#include <Agate/Shader/LaunchParameter.h>
 
 namespace Agate {
 
@@ -34,9 +35,14 @@ class OptixRenderer
     std::vector<OptixProgramGroup> missPGs_;
     std::vector<OptixProgramGroup> hitgroupPGs_;
 
-    CudaBuffer raygen_records_buf_;
-    CudaBuffer miss_records_buf_;
-    CudaBuffer hitgroup_records_buf_;
+    CudaBuffer raygen_records_buf_{};
+    CudaBuffer miss_records_buf_{};
+    CudaBuffer hitgroup_records_buf_{};
+    
+    OptixLaunchParams params_{};
+    CudaBuffer params_buffer_{};
+    
+    CudaBuffer color_buffer_{};
 
     /// 用于初始化 OptiX
     void InitOptiX();
@@ -61,8 +67,9 @@ public:
     OptixRenderer(const OptixRenderer&) = delete;
     OptixRenderer& operator=(const OptixRenderer&) = delete;
     
-    
+    void Draw();
     void Resize(const int2& newSize);
+    void DownloadPixels(uint32_t pixels[]);
 };
 
 } // namespace Agate

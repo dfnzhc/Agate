@@ -10,6 +10,8 @@ class resolver;
 }
 
 #include <spdlog/fmt/fmt.h>
+#include <optix_types.h>
+#include <optix_stubs.h>
 namespace Agate {
 
 #define EPS_F = 1e-5;
@@ -29,6 +31,17 @@ public:
     template<typename... Args>
     explicit AgateException(std::string_view fmt_str, const Args& ... args)
         : std::runtime_error(fmt::format(fmt_str, args...)) {}
+        
+    explicit AgateException( OptixResult res, std::string_view msg )
+         : std::runtime_error(CreateMessage( res, msg ).c_str()) {}
+        
+private:
+    inline std::string CreateMessage(OptixResult res, std::string_view msg)
+    {
+        std::ostringstream out;
+        out << optixGetErrorName(res) << ": " << msg;
+        return out.str();
+    }
 };
 
 } // namespace Agate
