@@ -103,8 +103,14 @@ set_source_files_properties(
 
         PROPERTIES 
         LANGUAGE CUDA
-        HEADER_FILE_ONLY TRUE
+#        HEADER_FILE_ONLY TRUE
+        COMPILE_OPTIONS "--ptx"
+        INCLUDE_DIRECTORIES ${OptiX_INCLUDE}
 )
+
+# just for syntax highlighting in Clion
+add_library(ptx OBJECT ${SHADERS} ${SHADERS_HEADERS})
+set_property(TARGET ptx PROPERTY CUDA_PTX_COMPILATION ON)
 
 # compile .cu file to .ptx
 set(PTX_TARGET_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
@@ -126,15 +132,15 @@ source_group("ptx" FILES ${PTX_SOURCES})
 add_executable(Agate
         ${HEADERS}
         ${SOURCES}
-        ${SHADERS}
+#        ${SHADERS}
         ${SHADERS_HEADERS}
         ${PTX_SOURCES}
         )
 
 target_compile_definitions(Agate PRIVATE ${AGATE_DEFINITIONS})
 target_precompile_headers(Agate PRIVATE include/pch.h)
-set_property(TARGET Agate PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-set_property(TARGET Agate PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+#set_property(TARGET Agate PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#set_property(TARGET Agate PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 target_link_libraries(Agate
         ${CUDA_LIBRARIES}
