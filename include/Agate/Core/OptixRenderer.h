@@ -9,6 +9,7 @@
 #include <driver_types.h>
 #include <Agate/Util/CudaBuffer.h>
 #include <Agate/Shader/LaunchParameter.h>
+#include "Interfaces.h"
 
 namespace Agate {
 
@@ -67,7 +68,7 @@ public:
     OptixRenderer(const OptixRenderer&) = delete;
     OptixRenderer& operator=(const OptixRenderer&) = delete;
     
-    void Draw();
+    void Render();
     void Resize(const int2& newSize);
     void DownloadPixels(uint32_t pixels[]);
 };

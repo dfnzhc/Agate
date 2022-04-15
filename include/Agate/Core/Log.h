@@ -14,8 +14,15 @@ namespace Agate {
 class Log final
 {
 public:
-    Log() = default;
-    ~Log() = default;
+    Log()
+    {
+        Init();
+    }
+
+    ~Log()
+    {
+        Shutdown();
+    }
 
     static void Init()
     {

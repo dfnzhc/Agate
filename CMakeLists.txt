@@ -54,7 +54,6 @@ set(OptiX_INSTALL_DIR "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.4.0/" CACHE
 find_package(OptiX REQUIRED)
 
 # Other dependencies
-find_package(OpenGL REQUIRED)
 add_subdirectory(ext)
 
 include_directories(
@@ -74,7 +73,7 @@ set(HEADERS
         include/Agate/Core/Error.h
         include/Agate/Core/Aplication.h
         include/Agate/Core/OptixRenderer.h
-        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h)
+        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h include/Agate/Core/Options.h include/Agate/Util/Utils.h include/Agate/Core/Interfaces.h)
 
 
 set(SOURCES
@@ -85,7 +84,7 @@ set(SOURCES
         src/Core/Common.cpp
         src/Core/Aplication.cpp
         src/Core/OptixRenderer.cpp
-        )
+        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h)
 
 
 set(SHADERS
@@ -145,7 +144,6 @@ target_precompile_headers(Agate PRIVATE include/pch.h)
 target_link_libraries(Agate
         ${CUDA_LIBRARIES}
         ${OPTIX_LIBRARIES}
-        OpenGL::GL
         libglfw
         spdlog
         glew

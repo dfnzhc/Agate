@@ -296,7 +296,7 @@ void OptixRenderer::BuildSBT()
     sbt.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 }
 
-void OptixRenderer::Draw()
+void OptixRenderer::Render()
 {
     if (params_.frame_buffer_size.x == 0)
         return;

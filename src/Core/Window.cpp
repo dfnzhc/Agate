@@ -3,6 +3,7 @@
 //
 #include "Agate/Core/Window.h"
 #include <Agate/Core/Common.h>
+#include <Agate/Core/Error.h>
 
 namespace Agate {
 
@@ -20,16 +21,6 @@ AgateWindow::~AgateWindow()
     glfwTerminate();
 }
 
-void AgateWindow::Draw()
-{
-
-}
-
-void AgateWindow::Render()
-{
-
-}
-
 void AgateWindow::Run()
 {
     int width, height;
@@ -38,7 +29,7 @@ void AgateWindow::Run()
 
     while (!ShouldClose()) {
         glfwPollEvents();
-        
+
         Render();
         Draw();
 
@@ -46,35 +37,31 @@ void AgateWindow::Run()
     }
 }
 
-void AgateWindow::Resize(const int2& newSize)
-{
-
-}
-
 void AgateWindow::InitWindow()
 {
     LOG_INFO("创建 GLFW 窗口")
-    
+
     glfwSetErrorCallback(GLFW_Error_Callback);
 
     if (!glfwInit()) {
         throw AgateException("GLFW failed to initialize.");
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+//    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
     handle_ = glfwCreateWindow(width_, height_, title_.c_str(), nullptr, nullptr);
     if (!handle_) {
         glfwTerminate();
         throw AgateException("Failed to create GLFW window.");
     }
-
+    
     glfwSetWindowUserPointer(handle_, this);
     glfwMakeContextCurrent(handle_);
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
 
     SetGLFWCallback();
 }
@@ -96,6 +83,16 @@ void AgateWindow::SetGLFWCallback()
             const bool pressed = action != GLFW_RELEASE;
             if (key == GLFW_KEY_ESCAPE && pressed)
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+    );
+
+    glfwSetFramebufferSizeCallback(
+        handle_,
+        [](GLFWwindow* window, int width, int height)
+        {
+            auto* aw = static_cast<AgateWindow*>(glfwGetWindowUserPointer(window));
+            AGATE_ASSERT(aw);
+            aw->Resize({width, height});
         }
     );
 }

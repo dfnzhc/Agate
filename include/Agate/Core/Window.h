@@ -7,9 +7,9 @@
 #include <GLFW/glfw3.h>
 
 #include <cuda_runtime.h>
+#include "Interfaces.h"
 
 namespace Agate {
-
 
 class AgateWindow
 {
@@ -20,29 +20,29 @@ public:
     AgateWindow(const AgateWindow&) = delete;
     AgateWindow& operator=(const AgateWindow&) = delete;
 
+    /// open the window and runs the window's events
+    void Run();
+    
+protected:
     /// put the pixels on the screen
-    void Draw();
+    virtual void Draw() {}
 
     /// re-render the frame - typically part of draw(), but we keep
     /// this a separate function so render() can focus on optix rendering
-    void Render();
+    virtual void Render() {}
 
-    /// open the window and runs the window's events
-    void Run();
-
-    void Resize(const int2& newSize);
+    virtual void Resize(const int2& newSize) {}
 
     bool ShouldClose() { return glfwWindowShouldClose(handle_); }
     bool WasWindowResized() const { return window_resized; }
-private:
     
     void InitWindow();
     void SetGLFWCallback();
-    
+
     GLFWwindow* handle_{nullptr};
-    
+
     bool window_resized = false;
-    
+
     int width_, height_;
     std::string title_;
 };

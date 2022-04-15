@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
 #include <optix.h>
+#include <cuda_runtime.h>
 #include <optix_stubs.h>
 
 #include "Agate/Core/Common.h"
@@ -16,7 +16,7 @@
 //
 //------------------------------------------------------------------------------
 
-#define CUDA_CHECK( call )                                                     \
+#define CUDA_CHECK(call)                                                     \
     do                                                                         \
     {                                                                          \
         cudaError_t error = call;                                              \
@@ -29,7 +29,6 @@
             throw Agate::AgateException( ss.str().c_str() );                   \
         }                                                                      \
     } while( 0 )
-
 
 #define CUDA_SYNC_CHECK()                                                      \
     do                                                                         \
@@ -46,8 +45,7 @@
         }                                                                      \
     } while( 0 )
 
-
-#define CUDA_CHECK_NOTHROW( call )                                             \
+#define CUDA_CHECK_NOTHROW(call)                                             \
     do                                                                         \
     {                                                                          \
         cudaError_t error = (call);                                            \
@@ -65,7 +63,7 @@
 // OptiX error-checking
 //
 //------------------------------------------------------------------------------
-#define OPTIX_CHECK( call )                                                    \
+#define OPTIX_CHECK(call)                                                    \
     do                                                                         \
     {                                                                          \
         OptixResult res = call;                                                \
@@ -81,7 +79,7 @@
 #define OPTIX_LOG_V() char log[2048]; \
                       size_t sizeof_log = sizeof(log)
 
-#define OPTIX_CHECK_LOG( call )                                                \
+#define OPTIX_CHECK_LOG(call)                                                \
     do                                                                         \
     {                                                                          \
         OptixResult res = call;                                                \
@@ -98,7 +96,7 @@
         }                                                                      \
     } while( 0 )
 
-#define OPTIX_CHECK_NOTHROW( call )                                            \
+#define OPTIX_CHECK_NOTHROW(call)                                            \
     do                                                                         \
     {                                                                          \
         OptixResult res = call;                                                \
@@ -116,7 +114,7 @@
 // Assertions
 //
 //------------------------------------------------------------------------------
-#define AGATE_ASSERT( cond )                                                   \
+#define AGATE_ASSERT(cond)                                                   \
     do                                                                         \
     {                                                                          \
         if( !(cond) )                                                          \
@@ -127,8 +125,7 @@
         }                                                                      \
     } while( 0 )
 
-
-#define AGATE_ASSERT_MSG( cond, msg )                                          \
+#define AGATE_ASSERT_MSG(cond, msg)                                          \
     do                                                                         \
     {                                                                          \
         if( !(cond) )                                                          \
@@ -138,3 +135,78 @@
             throw Agate::AgateException( ss.str().c_str() );                   \
         }                                                                      \
     } while( 0 )
+
+
+//------------------------------------------------------------------------------
+//
+// GL error-checking
+//
+//------------------------------------------------------------------------------
+
+#include <gl/GL.h>
+
+inline const char* GetGLErrorString( GLenum error )
+{
+    switch( error )
+    {
+        case GL_NO_ERROR:            return "No error";
+        case GL_INVALID_ENUM:        return "Invalid enum";
+        case GL_INVALID_VALUE:       return "Invalid value";
+        case GL_INVALID_OPERATION:   return "Invalid operation";
+            //case GL_STACK_OVERFLOW:      return "Stack overflow";
+            //case GL_STACK_UNDERFLOW:     return "Stack underflow";
+        case GL_OUT_OF_MEMORY:       return "Out of memory";
+            //case GL_TABLE_TOO_LARGE:     return "Table too large";
+        default:                     return "Unknown GL error";
+    }
+}
+
+
+inline void CheckGLError()
+{
+    GLenum err = glGetError();
+    if( err != GL_NO_ERROR )
+    {
+        std::ostringstream oss;
+        do
+        {
+            oss << "GL error: " << GetGLErrorString( err ) << "\n";
+            err = glGetError();
+        }
+        while( err != GL_NO_ERROR );
+
+        throw Agate::AgateException( oss.str().c_str() );
+    }
+}
+
+#define GL_CHECK(call)                                                         \
+        do                                                                     \
+        {                                                                      \
+            call;                                                              \
+            GLenum err = glGetError();                                         \
+            if( err != GL_NO_ERROR )                                           \
+            {                                                                  \
+                std::stringstream ss;                                          \
+                ss << "GL error " <<  GetGLErrorString( err ) << " at " \
+                   << __FILE__  << "(" <<  __LINE__  << "): " << #call         \
+                   << std::endl;                                               \
+                std::cerr << ss.str() << std::endl;                            \
+                throw Agate::AgateException( ss.str().c_str() );               \
+            }                                                                  \
+        }                                                                      \
+        while (0)
+
+#define GL_CHECK_ERRORS()                                                      \
+        do                                                                     \
+        {                                                                      \
+            GLenum err = glGetError();                                         \
+            if( err != GL_NO_ERROR )                                           \
+            {                                                                  \
+                std::stringstream ss;                                          \
+                ss << "GL error " <<  GetGLErrorString( err ) << " at "        \
+                   << __FILE__  << "(" <<  __LINE__  << ")";                   \
+                std::cerr << ss.str() << std::endl;                            \
+                throw Agate::AgateException( ss.str().c_str() );               \
+            }                                                                  \
+        }                                                                      \
+        while (0)
