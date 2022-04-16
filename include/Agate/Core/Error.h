@@ -10,6 +10,7 @@
 
 #include "Agate/Core/Common.h"
 
+
 //------------------------------------------------------------------------------
 //
 // CUDA error-checking
@@ -143,7 +144,7 @@
 //
 //------------------------------------------------------------------------------
 
-#include <gl/GL.h>
+#include <glad/glad.h>
 
 inline const char* GetGLErrorString( GLenum error )
 {

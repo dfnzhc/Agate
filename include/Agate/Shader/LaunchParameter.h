@@ -11,7 +11,7 @@ namespace Agate {
 struct OptixLaunchParams
 {
     int frameID{0};
-    uint32_t* color_buffer{nullptr};
+    uchar4* color_buffer{nullptr};
     int2 frame_buffer_size{0, 0};
 };
 

@@ -47,9 +47,9 @@ void AgateWindow::InitWindow()
         throw AgateException("GLFW failed to initialize.");
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-//    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
 
@@ -62,6 +62,13 @@ void AgateWindow::InitWindow()
     glfwSetWindowUserPointer(handle_, this);
     glfwMakeContextCurrent(handle_);
     glfwSwapInterval(0);
+
+    if (!gladLoadGL()) {
+        throw AgateException("GL 初始化失败.");
+    }
+
+    GL_CHECK(glClearColor(0.222f, 0.723f, 0.367f, 1.0f));
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
 
     SetGLFWCallback();
 }

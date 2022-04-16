@@ -318,24 +318,19 @@ void OptixRenderer::Render()
     CUDA_SYNC_CHECK();
 }
 
-void OptixRenderer::Resize(const int2& newSize)
+void OptixRenderer::Resize(const int2& newSize, uchar4* mapped_buffer)
 {
     if (newSize.x == 0 || newSize.y == 0)
         return;
 
     // resize our cuda frame buffer
-    color_buffer_.Resize(newSize.x * newSize.y * sizeof(uint32_t));
+    color_buffer_.Resize(newSize.x * newSize.y * sizeof(uchar4));
 
     // update the launch parameters that we'll pass to the optix
     // launch:
     params_.frame_buffer_size = newSize;
-    params_.color_buffer = (uint32_t*) color_buffer_.dev_ptr;
+    params_.color_buffer = mapped_buffer;
 }
 
-void OptixRenderer::DownloadPixels(uint32_t* pixels)
-{
-    color_buffer_.Download(pixels,
-                           params_.frame_buffer_size.x * params_.frame_buffer_size.y);
-}
 
 } // namespace Agate

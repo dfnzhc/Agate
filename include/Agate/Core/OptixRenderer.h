@@ -4,6 +4,7 @@
 
 #pragma once
 
+
 #include <cuda.h>
 #include <optix.h>
 #include <driver_types.h>
@@ -12,8 +13,6 @@
 #include "Interfaces.h"
 
 namespace Agate {
-
-
 
 class OptixRenderer
 {
@@ -69,8 +68,7 @@ public:
     OptixRenderer& operator=(const OptixRenderer&) = delete;
     
     void Render();
-    void Resize(const int2& newSize);
-    void DownloadPixels(uint32_t pixels[]);
+    void Resize(const int2& newSize, uchar4* mapped_buffer);
 };
 
 } // namespace Agate

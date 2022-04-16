@@ -43,14 +43,9 @@ extern "C" __global__ void __raygen__renderFrame()
     const int g = ((iy + frameID) % 256);
     const int b = ((ix + iy + frameID) % 256);
 
-    // convert to 32-bit rgba value (we explicitly set alpha to 0xff
-    // to make stb_image_write happy ...
-    const uint32_t rgba = 0xff000000
-        | (r << 0) | (g << 8) | (b << 16);
-
     // and write to frame buffer ...
     const uint32_t fbIndex = ix + iy * params.frame_buffer_size.x;
-    params.color_buffer[fbIndex] = rgba;
+    params.color_buffer[fbIndex] = make_uchar4(r, g, b, 1);
 }
 
 } // namespace Agate

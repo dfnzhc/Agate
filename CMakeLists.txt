@@ -73,7 +73,7 @@ set(HEADERS
         include/Agate/Core/Error.h
         include/Agate/Core/Aplication.h
         include/Agate/Core/OptixRenderer.h
-        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h include/Agate/Core/Options.h include/Agate/Util/Utils.h include/Agate/Core/Interfaces.h)
+        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h include/Agate/Core/Options.h include/Agate/Util/Utils.h include/Agate/Core/Interfaces.h include/Agate/Util/CudaOutputBuffer.hpp)
 
 
 set(SOURCES
@@ -146,7 +146,7 @@ target_link_libraries(Agate
         ${OPTIX_LIBRARIES}
         libglfw
         spdlog
-        glew
+        glad
         )
 
 target_include_directories(Agate

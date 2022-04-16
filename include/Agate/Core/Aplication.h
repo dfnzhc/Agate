@@ -8,7 +8,7 @@
 #include "OptixRenderer.h"
 #include "GLDisplay.h"
 
-#include <gl/GL.h>
+#include "Agate/Util/CudaOutputBuffer.hpp"
 
 namespace Agate {
 
@@ -26,6 +26,11 @@ class Application : public AgateWindow
     
     int2 fb_size_;
     GLuint fb_texture_{0};
+    
+    GLDisplay display_;
+    GLuint pbo_{0};
+    
+    CudaOutputBuffer<uchar4> output_buffer_;
     
     void Render() override;
     void Draw() override;
