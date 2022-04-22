@@ -5,7 +5,7 @@
 #include <Agate/Util/Utils.h>
 #include "Agate/Core/Aplication.h"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
+//#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
 namespace Agate {

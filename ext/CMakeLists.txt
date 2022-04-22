@@ -13,13 +13,6 @@ find_package(spdlog REQUIRED CONFIG)
 add_library(spdlog INTERFACE)
 target_link_libraries(spdlog INTERFACE spdlog::spdlog spdlog::spdlog_header_only)
 
-# glew
-find_package(OpenGL REQUIRED)
-
-find_package(GLEW REQUIRED CONFIG)
-add_library(glew INTERFACE)
-target_link_libraries(glew INTERFACE GLEW::GLEW ${OPENGL_LIBRARIES})
-
 # stb
 set(STB_INCLUDE_DIR stb)
 
@@ -35,3 +28,6 @@ target_compile_definitions( glad
 target_include_directories( glad PUBLIC . )
 target_link_libraries( glad PUBLIC ${OPENGL_LIBRARIES})
 set_property(TARGET glad PROPERTY FOLDER Dependencies)
+
+# tinygltf
+set(TinyGLTF_INCLUDE_DIR tinygltf)

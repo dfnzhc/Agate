@@ -1,6 +1,6 @@
 ﻿#include <optix.h>
 
-#include "LaunchParameter.h"
+#include "Params.h"
 
 namespace Agate {
 

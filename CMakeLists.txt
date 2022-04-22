@@ -73,7 +73,16 @@ set(HEADERS
         include/Agate/Core/Error.h
         include/Agate/Core/Aplication.h
         include/Agate/Core/OptixRenderer.h
-        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h include/Agate/Core/Options.h include/Agate/Util/Utils.h include/Agate/Core/Interfaces.h include/Agate/Util/CudaOutputBuffer.hpp include/Agate/Util/CudaBufferView.hpp include/Agate/Util/Material.hpp include/Agate/Util/AABB.hpp include/Agate/Util/Camera.hpp)
+        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h 
+        include/Agate/Core/Options.h
+        include/Agate/Util/Utils.h
+        include/Agate/Core/Interfaces.h
+        include/Agate/Util/CudaOutputBuffer.hpp
+        include/Agate/Util/CudaBufferView.hpp
+        include/Agate/Util/Material.hpp
+        include/Agate/Util/AABB.hpp
+        include/Agate/Util/Camera.hpp
+        include/Agate/Util/Quaternion.hpp)
 
 
 set(SOURCES
@@ -95,8 +104,8 @@ set(SHADERS
 set(SHADERS_HEADERS
         include/Agate/Shader/vec_math.h
         include/Agate/Shader/Matrix.h 
-        include/Agate/Shader/VertexInfo.h 
-        include/Agate/Shader/LaunchParameter.h)
+        include/Agate/Shader/VertexInfo.h
+        include/Agate/Shader/Params.h)
 
 set_source_files_properties(
         ${SHADERS}
@@ -153,6 +162,6 @@ target_link_libraries(Agate
 target_include_directories(Agate
         PUBLIC
         include
-        ${GLEW_INCLUDE_DIRS}
         ${STB_INCLUDE_DIR}
+        ${TinyGLTF_INCLUDE_DIR}
         )

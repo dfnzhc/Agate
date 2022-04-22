@@ -18,6 +18,7 @@ struct Camera
     float fovY = 45.0f;
     float aspectRatio = 1.0f;
 
+    Camera() = default;
     Camera(const float3& eye, const float3& lookat, const float3& up, float fovY, float aspectRatio)
         : eye(eye), lookat(lookat), up(up), fovY(fovY), aspectRatio(aspectRatio) {}
 

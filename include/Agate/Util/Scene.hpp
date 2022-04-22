@@ -24,9 +24,9 @@ public:
         Matrix4x4 transform;
 
         std::vector<GenericBufferView> indices;
-        std::vector<BufferView<float3> > positions;
-        std::vector<BufferView<float3> > normals;
-        std::vector<BufferView<float2> > texcoords;
+        std::vector<BufferView<float3>> positions;
+        std::vector<BufferView<float3>> normals;
+        std::vector<BufferView<float2>> texcoords;
 
         std::vector<int32_t> material_idx;
 

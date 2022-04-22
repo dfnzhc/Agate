@@ -9,7 +9,7 @@
 #include <optix.h>
 #include <driver_types.h>
 #include <Agate/Util/CudaBuffer.h>
-#include <Agate/Shader/LaunchParameter.h>
+#include <Agate/Shader/Params.h>
 #include "Interfaces.h"
 
 namespace Agate {

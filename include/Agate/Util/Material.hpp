@@ -17,6 +17,8 @@ struct MaterialData
     cudaTextureObject_t base_color_tex = 0;
     cudaTextureObject_t metallic_roughness_tex = 0;
     cudaTextureObject_t normal_tex = 0;
+    cudaTextureObject_t occlusion_tex = 0;
+    cudaTextureObject_t emissive_tex = 0;
 };
 
 } // namespace Agate
