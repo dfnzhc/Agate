@@ -13,34 +13,34 @@ namespace Agate {
 
 struct CudaBuffer
 {
-    size_t size_in_bytes{0};
+    size_t byte_size{0};
     void* dev_ptr{nullptr};
 
     [[nodiscard]]
-    inline CUdeviceptr device_ptr() const { return (CUdeviceptr) dev_ptr; }
+    inline CUdeviceptr get() const { return (CUdeviceptr) dev_ptr; }
 
-    void Resize(size_t size)
+    void resize(size_t size)
     {
-        if (dev_ptr) Free();
-        Alloc(size);
+        if (dev_ptr) free();
+        alloc(size);
     }
 
-    void Alloc(size_t size)
+    void alloc(size_t size)
     {
         assert(d_ptr == nullptr);
-        this->size_in_bytes = size;
-        CUDA_CHECK(cudaMalloc((void**) &dev_ptr, size_in_bytes));
+        this->byte_size = size;
+        CUDA_CHECK(cudaMalloc((void**) &dev_ptr, byte_size));
     }
 
-    void Free()
+    void free()
     {
         cudaFree(dev_ptr);
         dev_ptr = nullptr;
-        size_in_bytes = 0;
+        byte_size = 0;
     }
 
     template<typename T>
-    void Upload(const T* t, size_t count)
+    void upload(const T* t, size_t count)
     {
         assert(dev_ptr != nullptr);
         assert(sizeInBytes == count * sizeof(T));
@@ -48,14 +48,14 @@ struct CudaBuffer
     }
 
     template<typename T>
-    void Alloc_And_Upload(const std::vector<T>& vt)
+    void allocAndUpload(const std::vector<T>& vt)
     {
-        Alloc(vt.size() * sizeof(T));
-        Upload((const T*) vt.data(), vt.size());
+        alloc(vt.size() * sizeof(T));
+        upload((const T*) vt.data(), vt.size());
     }
 
     template<typename T>
-    void Download(T* t, size_t count)
+    void download(T* t, size_t count)
     {
         assert(dev_ptr != nullptr);
         assert(sizeInBytes == count * sizeof(T));

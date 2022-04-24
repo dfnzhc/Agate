@@ -53,7 +53,7 @@ OptixRenderer::OptixRenderer()
 
     BuildSBT();
 
-    params_buffer_.Resize(sizeof(params_));
+    params_buffer_.resize(sizeof(params_));
 
     LOG_INFO("Optix 渲染器初始化完成！");
 }
@@ -261,8 +261,8 @@ void OptixRenderer::BuildSBT()
         OPTIX_CHECK(optixSbtRecordPackHeader(raygenPG, &rec));
         raygenRecords.push_back(rec);
     }
-    raygen_records_buf_.Alloc_And_Upload(raygenRecords);
-    sbt.raygenRecord = raygen_records_buf_.device_ptr();
+    raygen_records_buf_.allocAndUpload(raygenRecords);
+    sbt.raygenRecord = raygen_records_buf_.get();
 
     /// ------------------------------------------------------------------
     /// build miss program records
@@ -273,8 +273,8 @@ void OptixRenderer::BuildSBT()
         OPTIX_CHECK(optixSbtRecordPackHeader(missPGs, &rec));
         missRecords.push_back(rec);
     }
-    miss_records_buf_.Alloc_And_Upload(missRecords);
-    sbt.missRecordBase = miss_records_buf_.device_ptr();
+    miss_records_buf_.allocAndUpload(missRecords);
+    sbt.missRecordBase = miss_records_buf_.get();
     sbt.missRecordCount = static_cast<int>(missRecords.size());
     sbt.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 
@@ -290,8 +290,8 @@ void OptixRenderer::BuildSBT()
         OPTIX_CHECK(optixSbtRecordPackHeader(missPGs, &rec));
         hitgroupRecords.push_back(rec);
     }
-    hitgroup_records_buf_.Alloc_And_Upload(hitgroupRecords);
-    sbt.hitgroupRecordBase = hitgroup_records_buf_.device_ptr();
+    hitgroup_records_buf_.allocAndUpload(hitgroupRecords);
+    sbt.hitgroupRecordBase = hitgroup_records_buf_.get();
     sbt.hitgroupRecordCount = static_cast<int>(hitgroupRecords.size());
     sbt.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 }
@@ -301,14 +301,14 @@ void OptixRenderer::Render()
     if (params_.frame_buffer_size.x == 0)
         return;
 
-    params_buffer_.Upload(&params_, 1);
+    params_buffer_.upload(&params_, 1);
     params_.frameID++;
 
     OPTIX_CHECK(optixLaunch(/*! pipeline we're launching launch: */
         pipeline_, stream_,
         /*! parameters and SBT */
-        params_buffer_.device_ptr(),
-        params_buffer_.size_in_bytes,
+        params_buffer_.get(),
+        params_buffer_.byte_size,
         &sbt,
         /*! dimensions of the launch: */
         params_.frame_buffer_size.x,
@@ -324,7 +324,7 @@ void OptixRenderer::Resize(const int2& newSize, uchar4* mapped_buffer)
         return;
 
     // resize our cuda frame buffer
-    color_buffer_.Resize(newSize.x * newSize.y * sizeof(uchar4));
+    color_buffer_.resize(newSize.x * newSize.y * sizeof(uchar4));
 
     // update the launch parameters that we'll pass to the optix
     // launch:

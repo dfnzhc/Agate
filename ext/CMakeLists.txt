@@ -31,3 +31,6 @@ set_property(TARGET glad PROPERTY FOLDER Dependencies)
 
 # tinygltf
 set(TinyGLTF_INCLUDE_DIR tinygltf)
+
+# tinyobj
+set(TinyOBJ_INCLUDE_DIR tinyobjloader)

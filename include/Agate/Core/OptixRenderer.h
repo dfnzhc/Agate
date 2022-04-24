@@ -39,7 +39,7 @@ class OptixRenderer
     CudaBuffer miss_records_buf_{};
     CudaBuffer hitgroup_records_buf_{};
     
-    OptixLaunchParams params_{};
+    LaunchParams params_{};
     CudaBuffer params_buffer_{};
     
     CudaBuffer color_buffer_{};

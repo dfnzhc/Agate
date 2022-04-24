@@ -4,6 +4,7 @@
 
 #include "Scene.hpp"
 #include "Quaternion.hpp"
+#include "Record.hpp"
 #include <Agate/Core/Error.h>
 
 #define TINYGLTF_IMPLEMENTATION
@@ -47,16 +48,16 @@ BufferView<T> BufferViewFromGLTF(const tinygltf::Model& model, Scene& scene, con
         gltf_accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT ? 4 :
         gltf_accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT ? 4 :
         0;
-    if (!elmt_byte_size) {
+    if (elmt_byte_size == 0) {
         throw AgateException("gltf accessor component type not supported");
     }
 
     const CUdeviceptr buffer_base = scene.getBuffer(gltf_buffer_view.buffer);
     BufferView<T> buffer_view;
     buffer_view.data = buffer_base + gltf_buffer_view.byteOffset + gltf_accessor.byteOffset;
-    buffer_view.byte_stride = static_cast<uint16_t>( gltf_buffer_view.byteStride );
-    buffer_view.count = static_cast<uint32_t>( gltf_accessor.count );
-    buffer_view.elmt_byte_size = static_cast<uint16_t>( elmt_byte_size );
+    buffer_view.byte_stride = static_cast<uint16_t>(gltf_buffer_view.byteStride);
+    buffer_view.count = static_cast<uint32_t>(gltf_accessor.count);
+    buffer_view.elmt_byte_size = static_cast<uint16_t>(elmt_byte_size);
 
     return buffer_view;
 }
@@ -95,10 +96,10 @@ void ProcessGLTFNode(
 
     std::vector<float> gltf_matrix;
     for (double x : gltf_node.matrix)
-        gltf_matrix.push_back(static_cast<float>( x ));
+        gltf_matrix.push_back(static_cast<float>(x));
     const Matrix4x4 matrix = gltf_node.matrix.empty() ?
                              Matrix4x4::identity() :
-                             Matrix4x4(reinterpret_cast<float*>( gltf_matrix.data())).transpose();
+                             Matrix4x4(reinterpret_cast<float*>(gltf_matrix.data())).transpose();
 
     const Matrix4x4 node_xform = parent_matrix * matrix * translation * rotation * scale;
 
@@ -126,6 +127,7 @@ void ProcessGLTFNode(
         camera.eye = eye;
         camera.up = up;
         scene.addCamera(camera);
+
     } else if (gltf_node.mesh != -1) {
         const auto& gltf_mesh = model.meshes[gltf_node.mesh];
         LOG_INFO("Processing glTF mesh: '{}'", gltf_mesh.name);
@@ -133,7 +135,7 @@ void ProcessGLTFNode(
         for (auto& gltf_primitive : gltf_mesh.primitives) {
             if (gltf_primitive.mode != TINYGLTF_MODE_TRIANGLES) // Ignore non-triangle meshes
             {
-                LOG_WARN("\tNon-triangle primitive: skipping\n");
+                LOG_WARN("\tNon-triangle primitive: skipping");
                 continue;
             }
 
@@ -190,7 +192,7 @@ void ProcessGLTFNode(
     }
 }
 
-void LoadScene(const std::string& filename, Scene& scene)
+void LoadGLTF(const std::string& filename, Scene& scene)
 {
     scene.cleanup();
 
@@ -375,12 +377,20 @@ void LoadScene(const std::string& filename, Scene& scene)
 
 Scene::~Scene()
 {
-
+    cleanup();
 }
 
 void Scene::addBuffer(const uint64_t buf_size, const void* data)
 {
-
+    CUdeviceptr buffer = 0;
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>( &buffer ), buf_size));
+    CUDA_CHECK(cudaMemcpy(
+        reinterpret_cast<void*>( buffer ),
+        data,
+        buf_size,
+        cudaMemcpyHostToDevice
+    ));
+    buffers_.push_back(buffer);
 }
 
 void Scene::addImage(int32_t width,
@@ -389,7 +399,37 @@ void Scene::addImage(int32_t width,
                      int32_t num_components,
                      const void* data)
 {
+    // Allocate CUDA array in device memory
+    int32_t pitch;
+    cudaChannelFormatDesc channel_desc{};
+    if (bits_per_component == 8) {
+        pitch = width * num_components * sizeof(uint8_t);
+        channel_desc = cudaCreateChannelDesc<uchar4>();
+    } else if (bits_per_component == 16) {
+        pitch = width * num_components * sizeof(uint16_t);
+        channel_desc = cudaCreateChannelDesc<uchar4>();
+    } else {
+        throw AgateException("Unsupported bits/component image");
+    }
 
+    cudaArray_t cuda_array = nullptr;
+    CUDA_CHECK(cudaMallocArray(
+        &cuda_array,
+        &channel_desc,
+        width,
+        height
+    ));
+    CUDA_CHECK(cudaMemcpy2DToArray(
+        cuda_array,
+        0,     // X offset
+        0,     // Y offset
+        data,
+        pitch,
+        pitch,
+        height,
+        cudaMemcpyHostToDevice
+    ));
+    images_.push_back(cuda_array);
 }
 
 void Scene::addSampler(cudaTextureAddressMode address_s,
@@ -397,71 +437,260 @@ void Scene::addSampler(cudaTextureAddressMode address_s,
                        cudaTextureFilterMode filter_mode,
                        int32_t image_idx)
 {
+    cudaResourceDesc res_desc = {};
+    res_desc.resType = cudaResourceTypeArray;
+    res_desc.res.array.array = getImage(image_idx);
 
+    cudaTextureDesc tex_desc = {};
+    tex_desc.addressMode[0] = address_s == GL_CLAMP_TO_EDGE ? cudaAddressModeClamp :
+                              address_s == GL_MIRRORED_REPEAT ? cudaAddressModeMirror : cudaAddressModeWrap;
+    tex_desc.addressMode[1] = address_t == GL_CLAMP_TO_EDGE ? cudaAddressModeClamp :
+                              address_t == GL_MIRRORED_REPEAT ? cudaAddressModeMirror : cudaAddressModeWrap;
+    tex_desc.filterMode = filter_mode == GL_NEAREST ? cudaFilterModePoint : cudaFilterModeLinear;
+    tex_desc.readMode = cudaReadModeNormalizedFloat;
+    tex_desc.normalizedCoords = 1;
+    tex_desc.maxAnisotropy = 1;
+    tex_desc.maxMipmapLevelClamp = 99;
+    tex_desc.minMipmapLevelClamp = 0;
+    tex_desc.mipmapFilterMode = cudaFilterModePoint;
+    tex_desc.borderColor[0] = 1.0f;
+    tex_desc.sRGB = 0;
+
+    // Create texture object
+    cudaTextureObject_t cuda_tex = 0;
+    CUDA_CHECK(cudaCreateTextureObject(&cuda_tex, &res_desc, &tex_desc, nullptr));
+    samplers_.push_back(cuda_tex);
 }
 
-CUdeviceptr Scene::getBuffer(int32_t buffer_index) const
+void Scene::finalize(int rayTypeCount)
 {
-    return 0;
-}
+    buildMeshAccels();
+    buildInstanceAccel(rayTypeCount);
 
-cudaArray_t Scene::getImage(int32_t image_index) const
-{
-    return nullptr;
-}
+    scene_aabb_.invalidate();
+    for (const auto& mesh : meshes_)
+        scene_aabb_.include(mesh->world_aabb);
 
-cudaTextureObject_t Scene::getSampler(int32_t sampler_index) const
-{
-    return 0;
-}
-
-void Scene::finalize()
-{
-
+    if (!cameras_.empty())
+        cameras_.front().lookat = scene_aabb_.center();
 }
 
 void Scene::cleanup()
 {
+    // Free buffers for mesh (indices, positions, normals, texcoords)
+    for (CUdeviceptr& buffer : buffers_)
+        CUDA_CHECK(cudaFree(reinterpret_cast<void*>( buffer )));
+    buffers_.clear();
 
+    // Destroy textures (base_color, metallic_roughness, normal)
+    for (cudaTextureObject_t& texture : samplers_)
+        CUDA_CHECK(cudaDestroyTextureObject(texture));
+    samplers_.clear();
+
+    for (cudaArray_t& image : images_)
+        CUDA_CHECK(cudaFreeArray(image));
+    images_.clear();
+
+    for (auto mesh : meshes_)
+        CUDA_CHECK(cudaFree(reinterpret_cast<void*>( mesh->d_gas_output )));
+    meshes_.clear();
 }
 
 Camera Scene::camera() const
 {
-    return Camera(float3(), float3(), float3(), 0, 0);
-}
+    if (!cameras_.empty()) {
+        LOG_INFO("Return first camera");
+        return cameras_.front();
+    }
 
-void Scene::createContext()
-{
-
+    LOG_INFO("Returning default camera");
+    Camera cam;
+    cam.fovY = 45.0f;
+    cam.lookat = scene_aabb_.center();
+    cam.eye = scene_aabb_.center() + make_float3(0.0f, 0.0f, 1.5f * scene_aabb_.maxExtent());
+    return cam;
 }
 
 void Scene::buildMeshAccels(uint32_t triangle_input_flags)
 {
+    OptixAccelBuildOptions accel_options = {};
+    accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
+    accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
 
+    for (auto& mesh : meshes_) {
+        const size_t num_subMeshes = mesh->indices.size();
+        std::vector<OptixBuildInput> buildInputs(num_subMeshes);
+
+        assert(mesh->positions.size() == num_subMeshes &&
+            mesh->normals.size() == num_subMeshes &&
+            mesh->texcoords.size() == num_subMeshes);
+
+        for (size_t j = 0; j < num_subMeshes; ++j) {
+            OptixBuildInput& triangle_input = buildInputs[j];
+            memset(&triangle_input, 0, sizeof(OptixBuildInput));
+            triangle_input.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+            triangle_input.triangleArray.vertexFormat = OPTIX_VERTEX_FORMAT_FLOAT3;
+            triangle_input.triangleArray.vertexStrideInBytes = mesh->positions[j].byte_stride ?
+                                                               mesh->positions[j].byte_stride :
+                                                               sizeof(float3);
+            triangle_input.triangleArray.numVertices = mesh->positions[j].count;
+            triangle_input.triangleArray.vertexBuffers = &(mesh->positions[j].data);
+            triangle_input.triangleArray.indexFormat = mesh->indices[j].elmt_byte_size == 2 ?
+                                                       OPTIX_INDICES_FORMAT_UNSIGNED_SHORT3 :
+                                                       OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
+            triangle_input.triangleArray.indexStrideInBytes = mesh->indices[j].byte_stride ?
+                                                              mesh->indices[j].byte_stride :
+                                                              mesh->indices[j].elmt_byte_size * 3;
+            triangle_input.triangleArray.numIndexTriplets = mesh->indices[j].count / 3;
+            triangle_input.triangleArray.indexBuffer = mesh->indices[j].data;
+            triangle_input.triangleArray.flags = &triangle_input_flags;
+            triangle_input.triangleArray.numSbtRecords = 1;
+        }
+
+        OptixAccelBufferSizes gas_buffer_sizes;
+        OPTIX_CHECK(optixAccelComputeMemoryUsage(context_, &accel_options, buildInputs.data(),
+                                                 static_cast<unsigned int>( num_subMeshes ), &gas_buffer_sizes));
+
+        CudaBuffer d_temp_compactedSizes;
+        d_temp_compactedSizes.alloc(sizeof(uint64_t));
+
+        OptixAccelEmitDesc emitProperty = {};
+        emitProperty.type = OPTIX_PROPERTY_TYPE_COMPACTED_SIZE;
+        emitProperty.result = d_temp_compactedSizes.get();
+
+        CudaBuffer d_temp;
+        d_temp.alloc(gas_buffer_sizes.tempSizeInBytes);
+
+        CudaBuffer d_temp_output;
+        d_temp_output.alloc(gas_buffer_sizes.outputSizeInBytes);
+
+        OPTIX_CHECK(optixAccelBuild(context_,
+                                    /* stream */ nullptr,
+                                    &accel_options,
+                                    buildInputs.data(),
+                                    static_cast<unsigned int>(num_subMeshes),
+                                    d_temp.get(),
+                                    d_temp.byte_size,
+                                    d_temp_output.get(),
+                                    d_temp_output.byte_size,
+
+                                    &mesh->gas_handle,
+                                    &emitProperty,
+                                    1));
+
+        CUDA_SYNC_CHECK();
+
+        uint64_t compactedSize;
+        d_temp_compactedSizes.download(&compactedSize, 1);
+
+        CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&mesh->d_gas_output), compactedSize));
+        OPTIX_CHECK(optixAccelCompact(context_,
+                                      /*stream:*/nullptr,
+                                      mesh->gas_handle,
+                                      mesh->d_gas_output,
+                                      compactedSize,
+                                      &mesh->gas_handle));
+
+        CUDA_SYNC_CHECK();
+    }
 }
 
 void Scene::buildInstanceAccel(int rayTypeCount)
 {
+    const size_t num_instances = meshes_.size();
 
+    std::vector<OptixInstance> optix_instances(num_instances);
+
+    unsigned int sbt_offset = 0;
+    for (size_t i = 0; i < meshes_.size(); ++i) {
+        auto mesh = meshes_[i];
+        auto& optix_instance = optix_instances[i];
+        memset(&optix_instance, 0, sizeof(OptixInstance));
+
+        optix_instance.flags = OPTIX_INSTANCE_FLAG_NONE;
+        optix_instance.instanceId = static_cast<unsigned int>(i);
+        optix_instance.sbtOffset = sbt_offset;
+        optix_instance.visibilityMask = 1;
+        optix_instance.traversableHandle = mesh->gas_handle;
+        memcpy(optix_instance.transform, mesh->transform.getData(), sizeof(float) * 12);
+
+        // one sbt record per GAS build input per RAY_TYPE
+        sbt_offset += static_cast<unsigned int>(mesh->indices.size()) * rayTypeCount;
+    }
+
+    const size_t instances_size_in_bytes = sizeof(OptixInstance) * num_instances;
+    CUdeviceptr d_instances;
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_instances), instances_size_in_bytes));
+    CUDA_CHECK(cudaMemcpy(
+        reinterpret_cast<void*>(d_instances),
+        optix_instances.data(),
+        instances_size_in_bytes,
+        cudaMemcpyHostToDevice
+    ));
+
+    OptixBuildInput instance_input = {};
+    instance_input.type = OPTIX_BUILD_INPUT_TYPE_INSTANCES;
+    instance_input.instanceArray.instances = d_instances;
+    instance_input.instanceArray.numInstances = static_cast<unsigned int>(num_instances);
+
+    OptixAccelBuildOptions accel_options = {};
+    accel_options.buildFlags = OPTIX_BUILD_FLAG_NONE;
+    accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
+
+    OptixAccelBufferSizes ias_buffer_sizes;
+    OPTIX_CHECK(optixAccelComputeMemoryUsage(
+        context_,
+        &accel_options,
+        &instance_input,
+        1, // num build inputs
+        &ias_buffer_sizes
+    ));
+
+    CUdeviceptr d_temp_buffer;
+    CUDA_CHECK(cudaMalloc(
+        reinterpret_cast<void**>(&d_temp_buffer),
+        ias_buffer_sizes.tempSizeInBytes
+    ));
+    CUDA_CHECK(cudaMalloc(
+        reinterpret_cast<void**>(&d_ias_output_buffer_),
+        ias_buffer_sizes.outputSizeInBytes
+    ));
+
+    OPTIX_CHECK(optixAccelBuild(
+        context_,
+        nullptr,                  // CUDA stream
+        &accel_options,
+        &instance_input,
+        1,                        // num build inputs
+        d_temp_buffer,
+        ias_buffer_sizes.tempSizeInBytes,
+        d_ias_output_buffer_,
+        ias_buffer_sizes.outputSizeInBytes,
+        &ias_handle_,
+        nullptr,            // emitted property list
+        0                   // num emitted properties
+    ));
+
+    CUDA_CHECK(cudaFree(reinterpret_cast<void*>(d_temp_buffer)));
+    CUDA_CHECK(cudaFree(reinterpret_cast<void*>(d_instances)));
 }
 
-void Scene::createPTXModule()
+OptixShaderBindingTable Scene::createSBT(const std::vector<OptixProgramGroup>& raygenPGs,
+                                  const std::vector<OptixProgramGroup>& missPGs,
+                                  const std::vector<OptixProgramGroup>& hitgroupPGs, int rayTypeCount)
 {
-
+    OptixShaderBindingTable sbt = {};
+    
+    std::vector<RaygenRecord> raygenRecords;
+    for (int i = 0; i < raygenPGs.size(); i++) {
+        RaygenRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(raygenPGs[i], &rec));
+        raygenRecords.push_back(rec);
+    }
+    raygenRecordBuffer.allocAndUpload(raygenRecords);
+    sbt.raygenRecord = raygenRecordBuffer.get();
+    
+    return sbt;
 }
 
-void Scene::createProgramGroups()
-{
-
-}
-
-void Scene::createPipeline()
-{
-
-}
-
-void Scene::createSBT()
-{
-
-}
 } // namespace Agate

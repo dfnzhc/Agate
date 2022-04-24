@@ -57,6 +57,7 @@ find_package(OptiX REQUIRED)
 add_subdirectory(ext)
 
 include_directories(
+        .
         include
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -65,24 +66,28 @@ include_directories(
 )
 
 set(HEADERS
+        include/pch.h
         include/Agate/Agate.h
-        include/Agate/Core/Log.h include/pch.h
+        include/Agate/Core/Log.h
         include/Agate/Core/Window.h
         include/Agate/Core/Common.h
         include/Agate/Util/Timer.h
         include/Agate/Core/Error.h
         include/Agate/Core/Aplication.h
         include/Agate/Core/OptixRenderer.h
-        include/Agate/Util/ReadFile.h include/Agate/Util/CudaBuffer.h 
+        include/Agate/Util/ReadFile.h
+        include/Agate/Util/CudaBuffer.h
         include/Agate/Core/Options.h
         include/Agate/Util/Utils.h
         include/Agate/Core/Interfaces.h
         include/Agate/Util/CudaOutputBuffer.hpp
-        include/Agate/Util/CudaBufferView.hpp
-        include/Agate/Util/Material.hpp
+        include/Agate/Shader/CudaBufferView.hpp
+        include/Agate/Shader/Material.hpp
         include/Agate/Util/AABB.hpp
         include/Agate/Util/Camera.hpp
-        include/Agate/Util/Quaternion.hpp)
+        include/Agate/Util/Quaternion.hpp
+        include/Agate/Util/Record.hpp
+        include/Agate/Shader/Geometry.hpp)
 
 
 set(SOURCES
@@ -103,18 +108,24 @@ set(SHADERS
 
 set(SHADERS_HEADERS
         include/Agate/Shader/vec_math.h
-        include/Agate/Shader/Matrix.h 
+        include/Agate/Shader/Matrix.h
         include/Agate/Shader/VertexInfo.h
-        include/Agate/Shader/Params.h)
+        include/Agate/Shader/Params.h
+        include/Agate/Shader/Geometry.hpp
+        include/Agate/Shader/Material.hpp
+        include/Agate/Shader/CudaBufferView.hpp
+        include/Agate/Agate.h
+        )
+
 
 set_source_files_properties(
         ${SHADERS}
 
-        PROPERTIES 
+        PROPERTIES
         LANGUAGE CUDA
-#        HEADER_FILE_ONLY TRUE
-#        COMPILE_OPTIONS "--ptx"
-#        INCLUDE_DIRECTORIES ${OptiX_INCLUDE}
+        #        HEADER_FILE_ONLY TRUE
+        #        COMPILE_OPTIONS "--ptx"
+        #        INCLUDE_DIRECTORIES ${OptiX_INCLUDE}
 )
 
 # just for syntax highlighting in Clion
@@ -141,7 +152,7 @@ source_group("ptx" FILES ${PTX_SOURCES})
 add_executable(Agate
         ${HEADERS}
         ${SOURCES}
-#        ${SHADERS}
+        #        ${SHADERS}
         ${SHADERS_HEADERS}
         ${PTX_SOURCES}
         )
@@ -164,4 +175,5 @@ target_include_directories(Agate
         include
         ${STB_INCLUDE_DIR}
         ${TinyGLTF_INCLUDE_DIR}
+        ${TinyOBJ_INCLUDE_DIR}
         )

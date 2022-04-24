@@ -4,7 +4,7 @@
 
 namespace Agate {
 
-extern "C" __constant__ OptixLaunchParams params;
+extern "C" __constant__ LaunchParams params;
 
 extern "C" __global__ void __closesthit__radiance() { /*! for this simple example, this will remain empty */ }
 

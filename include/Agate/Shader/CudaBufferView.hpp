@@ -26,7 +26,7 @@ struct BufferView
 
     AGATE_CPUGPU const T& operator[](unsigned int idx) const
     {
-        return *reinterpret_cast<T*>( data + idx * (byte_stride ? byte_stride : sizeof(T)));
+        return *reinterpret_cast<T*>(data + idx * (byte_stride ? byte_stride : sizeof(T)));
     }
 };
 
