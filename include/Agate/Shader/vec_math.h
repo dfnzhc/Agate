@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "Agate/Agate.h"
+#include "Defines.hpp"
 
 #include <vector_functions.h>
 #include <vector_types.h>

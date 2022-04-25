@@ -78,7 +78,7 @@ public:
 
     OptixShaderBindingTable createSBT(const std::vector<OptixProgramGroup>& raygenPGs,
                                       const std::vector<OptixProgramGroup>& missPGs,
-                                      const std::vector<OptixProgramGroup>& hitgroupPGs, int rayTypeCount);
+                                      const std::vector<OptixProgramGroup>& hitgroupPGs);
 private:
     // TODO: custom geometry support
     std::vector<Camera> cameras_;

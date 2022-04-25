@@ -112,12 +112,11 @@ void OptixRenderer::SetCompileOptions()
     pipeline_compile_options_.numPayloadValues = 2;
     pipeline_compile_options_.numAttributeValues = 2;
 
-    // TODO: should be OPTIX_EXCEPTION_FLAG_STACK_OVERFLOW;   
     pipeline_compile_options_.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
     pipeline_compile_options_.pipelineLaunchParamsVariableName = "params";
 
     // TODO 传入 ptx 文件参数
-    const std::string ptxCode = ReadPTX("./ptx/optixHello.ptx");
+    const std::string ptxCode = ReadPTX("optixHello");
 
     OPTIX_LOG_V();
     OPTIX_CHECK_LOG(optixModuleCreateFromPTX(optix_context_,
@@ -262,7 +261,7 @@ void OptixRenderer::BuildSBT()
         raygenRecords.push_back(rec);
     }
     raygen_records_buf_.allocAndUpload(raygenRecords);
-    sbt.raygenRecord = raygen_records_buf_.get();
+    sbt_.raygenRecord = raygen_records_buf_.get();
 
     /// ------------------------------------------------------------------
     /// build miss program records
@@ -274,9 +273,9 @@ void OptixRenderer::BuildSBT()
         missRecords.push_back(rec);
     }
     miss_records_buf_.allocAndUpload(missRecords);
-    sbt.missRecordBase = miss_records_buf_.get();
-    sbt.missRecordCount = static_cast<int>(missRecords.size());
-    sbt.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
+    sbt_.missRecordBase = miss_records_buf_.get();
+    sbt_.missRecordCount = static_cast<int>(missRecords.size());
+    sbt_.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 
 
     /// ------------------------------------------------------------------
@@ -291,9 +290,9 @@ void OptixRenderer::BuildSBT()
         hitgroupRecords.push_back(rec);
     }
     hitgroup_records_buf_.allocAndUpload(hitgroupRecords);
-    sbt.hitgroupRecordBase = hitgroup_records_buf_.get();
-    sbt.hitgroupRecordCount = static_cast<int>(hitgroupRecords.size());
-    sbt.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
+    sbt_.hitgroupRecordBase = hitgroup_records_buf_.get();
+    sbt_.hitgroupRecordCount = static_cast<int>(hitgroupRecords.size());
+    sbt_.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 }
 
 void OptixRenderer::Render()
@@ -309,7 +308,7 @@ void OptixRenderer::Render()
         /*! parameters and SBT */
         params_buffer_.get(),
         params_buffer_.byte_size,
-        &sbt,
+        &sbt_,
         /*! dimensions of the launch: */
         params_.frame_buffer_size.x,
         params_.frame_buffer_size.y,
@@ -323,14 +322,102 @@ void OptixRenderer::Resize(const int2& newSize, uchar4* mapped_buffer)
     if (newSize.x == 0 || newSize.y == 0)
         return;
 
-    // resize our cuda frame buffer
-    color_buffer_.resize(newSize.x * newSize.y * sizeof(uchar4));
-
     // update the launch parameters that we'll pass to the optix
     // launch:
     params_.frame_buffer_size = newSize;
     params_.color_buffer = mapped_buffer;
 }
 
+void OptixRenderer::createModule(std::string_view name)
+{
+    LOG_INFO("创建 Optix module: {}...", name)
+    
+    ModuleState moduleState;
+    
+    moduleState.compile_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
+    moduleState.compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
+    moduleState.compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
+
+    PipelineState pipelineState;
+    pipelineState.compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
+    pipelineState.compile_options.usesMotionBlur = false;
+    pipelineState.compile_options.numPayloadValues = 2;
+    pipelineState.compile_options.numAttributeValues = 2;
+
+    pipelineState.compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
+    pipelineState.compile_options.pipelineLaunchParamsVariableName = "params";
+
+    const std::string ptxCode = ReadPTX(name);
+
+    OPTIX_LOG_V();
+    OPTIX_CHECK_LOG(optixModuleCreateFromPTX(optix_context_,
+                                             &moduleState.compile_options,
+                                             &pipelineState.compile_options,
+                                             ptxCode.c_str(),
+                                             ptxCode.size(),
+                                             log, &sizeof_log,
+                                             &moduleState.module
+    ));
+    
+    modules_[name.data()] = moduleState;
+    pipelines_[name.data()] = pipelineState;
+}
+
+void OptixRenderer::createPipeline(std::string_view name,
+                                   const std::vector<OptixProgramGroup>& raygenPGs,
+                                   const std::vector<OptixProgramGroup>& missPGs,
+                                   const std::vector<OptixProgramGroup>& hitgroupPGs)
+{
+    LOG_INFO("创建着色器流水线: {}...", name)
+
+    std::vector<OptixProgramGroup> program_groups;
+    for (auto pg : raygenPGs)
+        program_groups.push_back(pg);
+    for (auto pg : missPGs)
+        program_groups.push_back(pg);
+    for (auto pg : hitgroupPGs)
+        program_groups.push_back(pg);
+
+    PipelineState pipelineState = pipelines_[name.data()];
+    
+    const uint32_t max_trace_depth = 0;
+    pipelineState.link_options.maxTraceDepth = max_trace_depth;
+    pipelineState.link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+
+    OPTIX_LOG_V();
+    OPTIX_CHECK(optixPipelineCreate(optix_context_,
+                                    &pipelineState.compile_options,
+                                    &pipelineState.link_options,
+                                    program_groups.data(),
+                                    (int) program_groups.size(),
+                                    log, &sizeof_log,
+                                    &pipelineState.pipeline
+    ));
+
+    // STACK SIZES
+    OptixStackSizes stack_sizes = {};
+    for (auto& prog_group : program_groups) {
+        OPTIX_CHECK(optixUtilAccumulateStackSizes(prog_group, &stack_sizes));
+    }
+
+    uint32_t direct_callable_stack_size_from_traversal;
+    uint32_t direct_callable_stack_size_from_state;
+    uint32_t continuation_stack_size;
+    OPTIX_CHECK(optixUtilComputeStackSizes(&stack_sizes, max_trace_depth,
+                                           0,  // maxCCDepth
+                                           0,  // maxDCDEpth
+                                           &direct_callable_stack_size_from_traversal,
+                                           &direct_callable_stack_size_from_state, &continuation_stack_size));
+
+    OPTIX_CHECK(optixPipelineSetStackSize(pipelineState.pipeline, direct_callable_stack_size_from_traversal,
+                                          direct_callable_stack_size_from_state, continuation_stack_size,
+                                          2  // maxTraversableDepth
+    ));
+}
+
+void OptixRenderer::addSBT(std::string_view name, OptixShaderBindingTable sbt)
+{
+    sbts_[name.data()] = sbt;
+}
 
 } // namespace Agate

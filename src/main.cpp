@@ -12,6 +12,6 @@ int main()
     AppProps props;
     
     Application app{props};
-    
+
     app.Run();
 }

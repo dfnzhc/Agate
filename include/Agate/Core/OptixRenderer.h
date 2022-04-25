@@ -4,7 +4,6 @@
 
 #pragma once
 
-
 #include <cuda.h>
 #include <optix.h>
 #include <driver_types.h>
@@ -19,17 +18,35 @@ class OptixRenderer
     CUcontext cuda_context_{};
     CUstream stream_{};
     cudaDeviceProp device_prop_{};
-
     OptixDeviceContext optix_context_{};
+
+    struct ModuleState
+    {
+        OptixModule module = {};
+        OptixModuleCompileOptions compile_options = {};
+    };
+
+    std::unordered_map<std::string, ModuleState> modules_;
+
+    OptixModule module_{};
+    OptixModuleCompileOptions module_compile_options_ = {};
+
+    struct PipelineState
+    {
+        OptixPipeline pipeline = {};
+        OptixPipelineCompileOptions compile_options = {};
+        OptixPipelineLinkOptions link_options = {};
+    };
+
+    std::unordered_map<std::string, PipelineState> pipelines_;
 
     OptixPipeline pipeline_{};
     OptixPipelineCompileOptions pipeline_compile_options_ = {};
     OptixPipelineLinkOptions pipeline_link_options_ = {};
 
-    OptixModule module_{};
-    OptixModuleCompileOptions module_compile_options_ = {};
+    std::unordered_map<std::string, OptixShaderBindingTable> sbts_;
 
-    OptixShaderBindingTable sbt = {};
+    OptixShaderBindingTable sbt_ = {};
 
     std::vector<OptixProgramGroup> raygenPGs_;
     std::vector<OptixProgramGroup> missPGs_;
@@ -38,11 +55,9 @@ class OptixRenderer
     CudaBuffer raygen_records_buf_{};
     CudaBuffer miss_records_buf_{};
     CudaBuffer hitgroup_records_buf_{};
-    
+
     LaunchParams params_{};
     CudaBuffer params_buffer_{};
-    
-    CudaBuffer color_buffer_{};
 
     /// 用于初始化 OptiX
     void InitOptiX();
@@ -66,9 +81,18 @@ public:
 
     OptixRenderer(const OptixRenderer&) = delete;
     OptixRenderer& operator=(const OptixRenderer&) = delete;
-    
+
     void Render();
     void Resize(const int2& newSize, uchar4* mapped_buffer);
+
+    void createModule(std::string_view name /* settings... */);
+
+    void createPipeline(std::string_view name,
+                        const std::vector<OptixProgramGroup>& raygenPGs,
+                        const std::vector<OptixProgramGroup>& missPGs,
+                        const std::vector<OptixProgramGroup>& hitgroupPGs);
+
+    void addSBT(std::string_view name, OptixShaderBindingTable sbt);
 };
 
 } // namespace Agate

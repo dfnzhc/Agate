@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <Agate/Util/Scene.hpp>
 #include "Window.h"
 #include "OptixRenderer.h"
 #include "GLDisplay.h"
@@ -31,6 +32,8 @@ class Application : public AgateWindow
     GLuint pbo_{0};
     
     CudaOutputBuffer<uchar4> output_buffer_;
+    
+    std::shared_ptr<Scene> scene_;
     
     void Render() override;
     void Draw() override;

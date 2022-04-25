@@ -12,7 +12,11 @@ namespace Agate {
 
 inline std::string ReadPTX(std::string_view fileName)
 {
-    std::ifstream input{fileName.data()};
+    std::string path = "./ptx/";
+    path += fileName;
+    path += ".ptx";
+    
+    std::ifstream input{path};
 
     if (!input) {
         LOG_ERROR("读取 PTX 文件失败. {}", fileName);
@@ -27,8 +31,23 @@ inline std::string ReadPTX(std::string_view fileName)
         LOG_ERROR("读取 PTX 文件失败. {}", fileName);
         return {};
     }
-    
+
     return ptx.str();
+}
+
+inline bool FileExist(const char* filename)
+{
+    struct stat buffer;
+    return (stat(filename, &buffer) == 0);
+}
+
+inline std::string GetAssetPath(std::string_view assetName)
+{
+    std::string path = std::string(AGATE_ASSETS_PATH);
+    path += '/';
+    path += assetName;
+    
+    return FileExist(path.c_str()) ? path : "";
 }
 
 } // namespace Agate

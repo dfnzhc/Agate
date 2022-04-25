@@ -29,6 +29,6 @@ set(ALL_EXAMPLE_TARGETS
 
 foreach (name ${ALL_EXAMPLE_TARGETS})
     target_include_directories(${name} PRIVATE ${CGT_INCLUDE_DIR})
-    target_link_libraries(${name} PRIVATE Catch2::Catch2 CGT)
-    set_property(TARGET ${name} PROPERTY CXX_STANDARD 23)
+    target_link_libraries(${name} PRIVATE Catch2::Catch2 Agate)
+    set_property(TARGET ${name} PROPERTY CXX_STANDARD 17)
 endforeach ()

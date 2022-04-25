@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cuda.h>
-#include "Agate/Agate.h"
+#include "Defines.hpp"
 
 namespace Agate {
 

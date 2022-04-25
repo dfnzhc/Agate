@@ -31,6 +31,7 @@ if (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif (WIN32)
 
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -98,7 +99,7 @@ set(SOURCES
         src/Core/Common.cpp
         src/Core/Aplication.cpp
         src/Core/OptixRenderer.cpp
-        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h include/Agate/Util/Scene.cpp include/Agate/Util/Scene.hpp)
+        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h src/Util/Scene.cpp include/Agate/Util/Scene.hpp)
 
 
 set(SHADERS
@@ -114,8 +115,7 @@ set(SHADERS_HEADERS
         include/Agate/Shader/Geometry.hpp
         include/Agate/Shader/Material.hpp
         include/Agate/Shader/CudaBufferView.hpp
-        include/Agate/Agate.h
-        )
+        include/Agate/Shader/Defines.hpp)
 
 
 set_source_files_properties(
@@ -157,7 +157,7 @@ add_executable(Agate
         ${PTX_SOURCES}
         )
 
-target_compile_definitions(Agate PRIVATE ${AGATE_DEFINITIONS})
+target_compile_definitions(Agate PRIVATE ${AGATE_DEFINITIONS} AGATE_ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Assets")
 target_precompile_headers(Agate PRIVATE include/pch.h)
 #set_property(TARGET Agate PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 #set_property(TARGET Agate PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)

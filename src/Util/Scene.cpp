@@ -2,9 +2,9 @@
 // Created by 秋鱼头 on 2022/4/18.
 //
 
-#include "Scene.hpp"
-#include "Quaternion.hpp"
-#include "Record.hpp"
+#include "include/Agate/Util/Scene.hpp"
+#include "include/Agate/Util/Quaternion.hpp"
+#include "include/Agate/Util/Record.hpp"
 #include <Agate/Core/Error.h>
 
 #define TINYGLTF_IMPLEMENTATION
@@ -677,18 +677,57 @@ void Scene::buildInstanceAccel(int rayTypeCount)
 
 OptixShaderBindingTable Scene::createSBT(const std::vector<OptixProgramGroup>& raygenPGs,
                                   const std::vector<OptixProgramGroup>& missPGs,
-                                  const std::vector<OptixProgramGroup>& hitgroupPGs, int rayTypeCount)
+                                  const std::vector<OptixProgramGroup>& hitgroupPGs)
 {
     OptixShaderBindingTable sbt = {};
     
     std::vector<RaygenRecord> raygenRecords;
-    for (int i = 0; i < raygenPGs.size(); i++) {
+    for (auto raygenPG : raygenPGs) {
         RaygenRecord rec;
-        OPTIX_CHECK(optixSbtRecordPackHeader(raygenPGs[i], &rec));
+        OPTIX_CHECK(optixSbtRecordPackHeader(raygenPG, &rec));
+        /// ...
         raygenRecords.push_back(rec);
     }
     raygenRecordBuffer.allocAndUpload(raygenRecords);
     sbt.raygenRecord = raygenRecordBuffer.get();
+    
+    std::vector<MissRecord> missRecords;
+    for (auto missPG : missPGs) {
+        MissRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(missPG, &rec));
+        /// ...
+        missRecords.push_back(rec);
+    }
+    missRecordBuffer.allocAndUpload(missRecords);
+    sbt.missRecordBase = missRecordBuffer.get();
+    sbt.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(MissRecord));
+    sbt.missRecordCount = static_cast<unsigned int>(missRecords.size());
+    
+    std::vector<HitGroupRecord> hitgroupRecords;
+    for (const auto& mesh : meshes_) {
+        for (size_t i = 0; i < mesh->material_idx.size(); ++i) {
+            for (auto hitgroupPG : hitgroupPGs) {
+                HitGroupRecord rec;
+                OPTIX_CHECK(optixSbtRecordPackHeader(hitgroupPG, &rec));
+                rec.data.geometry_data.triangle_mesh.positions = mesh->positions[i];
+                rec.data.geometry_data.triangle_mesh.normals = mesh->normals[i];
+                rec.data.geometry_data.triangle_mesh.texcoords = mesh->texcoords[i];
+                rec.data.geometry_data.triangle_mesh.indices = mesh->indices[i];
+                
+                const int32_t mat_idx = mesh->material_idx[i];
+                if (mat_idx >= 0)
+                    rec.data.material_data = materials_[mat_idx];
+                else
+                    rec.data.material_data = MaterialData{};
+                
+                hitgroupRecords.push_back(rec);
+            }
+        }
+    }
+    hitgroupRecordBuffer.allocAndUpload(hitgroupRecords);
+    sbt.hitgroupRecordBase = hitgroupRecordBuffer.get();
+    sbt.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(HitGroupRecord));
+    sbt.hitgroupRecordCount = static_cast<unsigned int>(hitgroupRecords.size());
     
     return sbt;
 }
