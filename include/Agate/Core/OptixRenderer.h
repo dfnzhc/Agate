@@ -13,6 +13,16 @@
 
 namespace Agate {
 
+struct OptixStateInfo
+{
+    std::string ptx_name{};
+    std::string raygen{};
+    std::string miss{};
+    std::string closesthit{};
+    std::string anyhit{};
+    std::string hitgroup{};
+};
+
 class OptixRenderer
 {
     CUcontext cuda_context_{};
@@ -20,37 +30,28 @@ class OptixRenderer
     cudaDeviceProp device_prop_{};
     OptixDeviceContext optix_context_{};
 
-    struct ModuleState
+    struct OptixState
     {
         OptixModule module = {};
-        OptixModuleCompileOptions compile_options = {};
-    };
+        OptixModuleCompileOptions module_compile_options = {};
 
-    std::unordered_map<std::string, ModuleState> modules_;
-
-    OptixModule module_{};
-    OptixModuleCompileOptions module_compile_options_ = {};
-
-    struct PipelineState
-    {
         OptixPipeline pipeline = {};
-        OptixPipelineCompileOptions compile_options = {};
+        OptixPipelineCompileOptions pipeline_compile_options = {};
         OptixPipelineLinkOptions link_options = {};
     };
 
-    std::unordered_map<std::string, PipelineState> pipelines_;
-
-    OptixPipeline pipeline_{};
-    OptixPipelineCompileOptions pipeline_compile_options_ = {};
-    OptixPipelineLinkOptions pipeline_link_options_ = {};
-
+    std::unordered_map<std::string, OptixState> states_;
     std::unordered_map<std::string, OptixShaderBindingTable> sbts_;
 
-    OptixShaderBindingTable sbt_ = {};
+    struct BindState
+    {
+        OptixPipeline pipeline = {};
+        OptixShaderBindingTable sbt = {};
+    };
+    
+    BindState bind_state_ = {};
 
-    std::vector<OptixProgramGroup> raygenPGs_;
-    std::vector<OptixProgramGroup> missPGs_;
-    std::vector<OptixProgramGroup> hitgroupPGs_;
+    std::unordered_map<std::string, OptixProgramGroup> program_groups_;
 
     CudaBuffer raygen_records_buf_{};
     CudaBuffer miss_records_buf_{};
@@ -65,16 +66,12 @@ class OptixRenderer
     /// 创建和配置一个 optix 设备上下文
     void CreateContext();
 
-    void SetCompileOptions();
+    void createModule(std::string_view ptxName /* settings... */);
 
-    void CreateRaygenPrograms();
-    void CreateMissPrograms();
-    void CreateHitgroupPrograms();
-
-    void CreatePipeline();
-
-    void BuildSBT();
-
+    void CreateRaygenPrograms(OptixModule module, const OptixStateInfo& info);
+    void CreateMissPrograms(OptixModule module, const OptixStateInfo& info);
+    void CreateHitGroupPrograms(OptixModule module, const OptixStateInfo& info);
+    void setPipeline(const OptixStateInfo& info);
 public:
     OptixRenderer();
     ~OptixRenderer();
@@ -82,16 +79,14 @@ public:
     OptixRenderer(const OptixRenderer&) = delete;
     OptixRenderer& operator=(const OptixRenderer&) = delete;
 
+    void finalize(const OptixStateInfo& info);
+    void clearup();
+
+    void bind(std::string_view name);
     void Render();
     void Resize(const int2& newSize, uchar4* mapped_buffer);
 
-    void createModule(std::string_view name /* settings... */);
-
-    void createPipeline(std::string_view name,
-                        const std::vector<OptixProgramGroup>& raygenPGs,
-                        const std::vector<OptixProgramGroup>& missPGs,
-                        const std::vector<OptixProgramGroup>& hitgroupPGs);
-
+    void createSBT(const OptixStateInfo& info);
     void addSBT(std::string_view name, OptixShaderBindingTable sbt);
 };
 

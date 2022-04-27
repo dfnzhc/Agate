@@ -103,7 +103,7 @@ set(SOURCES
 
 
 set(SHADERS
-        include/Agate/Shader/optixHello.cu
+        include/Agate/Shader/Hello.cu
         )
 
 

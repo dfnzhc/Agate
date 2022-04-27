@@ -12,6 +12,8 @@ int main()
     AppProps props;
     
     Application app{props};
+    app.addOptixModule("Hello");
+    app.finalize();
 
     app.Run();
 }

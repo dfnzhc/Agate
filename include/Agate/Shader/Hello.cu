@@ -6,13 +6,13 @@ namespace Agate {
 
 extern "C" __constant__ LaunchParams params;
 
-extern "C" __global__ void __closesthit__radiance() { /*! for this simple example, this will remain empty */ }
+extern "C" __global__ void __closesthit__Hello() { /*! for this simple example, this will remain empty */ }
 
-extern "C" __global__ void __anyhit__radiance() { /*! for this simple example, this will remain empty */ }
+extern "C" __global__ void __anyhit__Hello() { /*! for this simple example, this will remain empty */ }
 
-extern "C" __global__ void __miss__radiance() { /*! for this simple example, this will remain empty */ }
-
-extern "C" __global__ void __raygen__renderFrame()
+extern "C" __global__ void __miss__Hello() { /*! for this simple example, this will remain empty */ }
+  
+extern "C" __global__ void __raygen__Hello()
 {
     const int frameID = params.frameID; 
 

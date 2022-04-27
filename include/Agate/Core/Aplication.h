@@ -21,19 +21,16 @@ struct AppProps
 
 class Application : public AgateWindow
 {
+    int2 fb_size_;
+    GLDisplay display_;
+    CudaOutputBuffer<uchar4> output_buffer_;
     std::unique_ptr<OptixRenderer> optix_renderer_;
     
-    std::vector<uint32_t> pixels_;
-    
-    int2 fb_size_;
-    GLuint fb_texture_{0};
-    
-    GLDisplay display_;
-    GLuint pbo_{0};
-    
-    CudaOutputBuffer<uchar4> output_buffer_;
-    
     std::shared_ptr<Scene> scene_;
+    
+    std::vector<std::string> optix_modules_;
+    
+    void createOptixState();
     
     void Render() override;
     void Draw() override;
@@ -45,6 +42,9 @@ public:
 
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
+    
+    void addOptixModule(std::string_view module) { optix_modules_.push_back(module.data()); }
+    void finalize();
 };
 
 } // namespace Agate

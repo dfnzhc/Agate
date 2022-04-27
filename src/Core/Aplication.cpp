@@ -13,22 +13,18 @@ Application::Application(const AppProps& props) :
     display_{BufferImageFormat::UNSIGNED_BYTE4},
     output_buffer_{width_, height_}
 {
-    glGenBuffers(1, &pbo_);
-
     fb_size_ = props.windowExtend;
-
-    pixels_.resize(GetSize(fb_size_));
 
     output_buffer_.Resize(fb_size_.x, fb_size_.y);
     uchar4* result_buffer_data = output_buffer_.Map();
     optix_renderer_->Resize(fb_size_, result_buffer_data);
     output_buffer_.Unmap();
 
-    glGenTextures(1, &fb_texture_);
 }
 
 void Application::Render()
 {
+    optix_renderer_->bind("Hello");
     optix_renderer_->Render();
 }
 
@@ -43,7 +39,26 @@ void Application::Resize(const int2& newSize)
 
     output_buffer_.Resize(newSize.x, newSize.y);
     optix_renderer_->Resize(newSize, output_buffer_.Map());
-    pixels_.resize(GetSize(newSize));
+}
+
+void Application::finalize()
+{
+    createOptixState();
+}
+
+void Application::createOptixState()
+{
+    {
+        OptixStateInfo info;
+        info.ptx_name   = "Hello";
+        info.raygen     = "__raygen__Hello";
+        info.miss       = "__miss__Hello";
+        info.closesthit = "__closesthit__Hello";
+        info.anyhit     = "__anyhit__Hello";
+        info.hitgroup   = "__hitgroup__Hello";
+        
+        optix_renderer_->finalize(info);
+    }
 }
 
 } // namespace Agate

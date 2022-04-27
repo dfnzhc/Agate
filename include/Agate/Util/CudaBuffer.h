@@ -55,6 +55,13 @@ struct CudaBuffer
     }
 
     template<typename T>
+    void allocAndUpload(const T& t)
+    {
+        alloc(sizeof(T));
+        upload((const T*)t, 1);
+    }
+    
+    template<typename T>
     void download(T* t, size_t count)
     {
         assert(dev_ptr != nullptr);

@@ -10,24 +10,9 @@
 
 #include <Agate/Shader/VertexInfo.h>
 #include <Agate/Util/ReadFile.h>
+#include <Agate/Util/Record.hpp>
 
 namespace Agate {
-
-/// 对于不携带数据的着色器程序，只需要一个 header
-struct SbtRecordHeader
-{
-    __align__(OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE]{};
-};
-
-/// 用于携带数据的着色器程序，模板函数方便传递不同类型的信息
-template<typename T>
-struct SbtRecordData
-{
-    __align__(OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE]{};
-    T data;
-};
-
-using SbtRecordGeometryInstanceData = SbtRecordData<GeometryInstanceData>;
 
 static void ContextLogCB(unsigned int level,
                          const char* tag,
@@ -43,23 +28,61 @@ OptixRenderer::OptixRenderer()
 
     CreateContext();
 
-    SetCompileOptions();
-
-    CreateRaygenPrograms();
-    CreateMissPrograms();
-    CreateHitgroupPrograms();
-
-    CreatePipeline();
-
-    BuildSBT();
-
     params_buffer_.resize(sizeof(params_));
 
-    LOG_INFO("Optix 渲染器初始化完成！");
+    LOG_INFO("Optix 初始化完成！");
 }
+
 OptixRenderer::~OptixRenderer()
 {
+    clearup();
+}
 
+void OptixRenderer::finalize(const OptixStateInfo& info)
+{
+    createModule(info.ptx_name);
+    auto m = states_.find(info.ptx_name);
+    AGATE_ASSERT(m != states_.end() && "创建模组失败");
+
+    OptixState state = m->second;
+    /// 分别创建三种着色器
+    CreateRaygenPrograms(state.module, info);
+    CreateMissPrograms(state.module, info);
+    CreateHitGroupPrograms(state.module, info);
+
+    setPipeline(info);
+    createSBT(info);
+}
+
+void OptixRenderer::clearup()
+{
+    for (auto it = states_.begin(); it != states_.end(); ++it) {
+        OPTIX_CHECK(optixPipelineDestroy(it->second.pipeline));
+        it->second.pipeline = nullptr;
+
+        OPTIX_CHECK(optixModuleDestroy(it->second.module));
+        it->second.module = nullptr;
+    }
+
+    for (auto it = program_groups_.begin(); it != program_groups_.end(); ++it) {
+        OPTIX_CHECK(optixProgramGroupDestroy(it->second));
+        it->second = nullptr;
+    }
+
+    for (auto it = sbts_.begin(); it != sbts_.end(); ++it) {
+        if (it->second.raygenRecord) {
+            CUDA_CHECK(cudaFree(reinterpret_cast<void*>( it->second.raygenRecord )));
+            it->second.raygenRecord = 0;
+        }
+        if (it->second.missRecordBase) {
+            CUDA_CHECK(cudaFree(reinterpret_cast<void*>( it->second.missRecordBase )));
+            it->second.missRecordBase = 0;
+        }
+        if (it->second.hitgroupRecordBase) {
+            CUDA_CHECK(cudaFree(reinterpret_cast<void*>( it->second.hitgroupRecordBase )));
+            it->second.hitgroupRecordBase = 0;
+        }
+    }
 }
 
 void OptixRenderer::InitOptiX()
@@ -97,50 +120,51 @@ void OptixRenderer::CreateContext()
     OPTIX_CHECK(optixDeviceContextCreate(cuda_context_, &options, &optix_context_));
 }
 
-void OptixRenderer::SetCompileOptions()
+void OptixRenderer::createModule(std::string_view ptxName)
 {
-    LOG_INFO("创建 Optix module...")
+    LOG_INFO("创建 Optix module: {}...", ptxName)
 
-    module_compile_options_.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
-    module_compile_options_.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
-    module_compile_options_.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
+    OptixState state;
 
-    pipeline_compile_options_ = {};
-    // 与 OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS 有什么区别？
-    pipeline_compile_options_.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
-    pipeline_compile_options_.usesMotionBlur = false;
-    pipeline_compile_options_.numPayloadValues = 2;
-    pipeline_compile_options_.numAttributeValues = 2;
+    state.module_compile_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
+    state.module_compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
+    state.module_compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
 
-    pipeline_compile_options_.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
-    pipeline_compile_options_.pipelineLaunchParamsVariableName = "params";
+    state.pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
+    state.pipeline_compile_options.usesMotionBlur = false;
+    state.pipeline_compile_options.numPayloadValues = 2;
+    state.pipeline_compile_options.numAttributeValues = 2;
 
-    // TODO 传入 ptx 文件参数
-    const std::string ptxCode = ReadPTX("optixHello");
+    state.pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
+    state.pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
+
+    const std::string ptxCode = ReadPTX(ptxName);
 
     OPTIX_LOG_V();
     OPTIX_CHECK_LOG(optixModuleCreateFromPTX(optix_context_,
-                                             &module_compile_options_,
-                                             &pipeline_compile_options_,
+                                             &state.module_compile_options,
+                                             &state.pipeline_compile_options,
                                              ptxCode.c_str(),
                                              ptxCode.size(),
                                              log, &sizeof_log,
-                                             &module_
+                                             &state.module
     ));
+
+    states_.insert({ptxName.data(), state});
 }
 
-void OptixRenderer::CreateRaygenPrograms()
+void OptixRenderer::CreateRaygenPrograms(OptixModule module, const OptixStateInfo& info)
 {
-    LOG_INFO("创建 Raygen 着色器程序...")
+    LOG_INFO("创建着色器程序: {}...", info.raygen)
 
-    raygenPGs_.resize(1);
+    OptixProgramGroup pg;
 
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
     pgDesc.flags = OPTIX_PROGRAM_GROUP_FLAGS_NONE;
-    pgDesc.raygen.module = module_;
-    pgDesc.raygen.entryFunctionName = "__raygen__renderFrame";
+    pgDesc.raygen.module = module;
+    pgDesc.raygen.entryFunctionName = info.raygen.c_str();
 
     OPTIX_LOG_V();
     OPTIX_CHECK(optixProgramGroupCreate(optix_context_,
@@ -148,22 +172,23 @@ void OptixRenderer::CreateRaygenPrograms()
                                         1,
                                         &pgOptions,
                                         log, &sizeof_log,
-                                        &raygenPGs_[0]
+                                        &pg
     ));
+
+    program_groups_.insert({info.raygen, pg});
 }
 
-void OptixRenderer::CreateMissPrograms()
+void OptixRenderer::CreateMissPrograms(OptixModule module, const OptixStateInfo& info)
 {
-    LOG_INFO("创建 Miss 着色器程序...")
+    LOG_INFO("创建着色器程序: {}...", info.miss)
 
-    missPGs_.resize(1);
-
+    OptixProgramGroup pg;
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
     pgDesc.flags = OPTIX_PROGRAM_GROUP_FLAGS_NONE;
-    pgDesc.raygen.module = module_;
-    pgDesc.raygen.entryFunctionName = "__miss__radiance";
+    pgDesc.raygen.module = module;
+    pgDesc.raygen.entryFunctionName = info.miss.c_str();
 
     OPTIX_LOG_V();
     OPTIX_CHECK(optixProgramGroupCreate(optix_context_,
@@ -171,24 +196,26 @@ void OptixRenderer::CreateMissPrograms()
                                         1,
                                         &pgOptions,
                                         log, &sizeof_log,
-                                        &missPGs_[0]
+                                        &pg
     ));
+
+    program_groups_.insert({info.miss, pg});
 }
 
-void OptixRenderer::CreateHitgroupPrograms()
+void OptixRenderer::CreateHitGroupPrograms(OptixModule module, const OptixStateInfo& info)
 {
-    LOG_INFO("创建 Hitgroup 着色器程序组...")
+    LOG_INFO("创建着色器程序: {}...", info.hitgroup)
 
-    hitgroupPGs_.resize(1);
+    OptixProgramGroup pg;
 
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
     pgDesc.flags = OPTIX_PROGRAM_GROUP_FLAGS_NONE;
-    pgDesc.hitgroup.moduleCH = module_;
-    pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__radiance";
-    pgDesc.hitgroup.moduleAH = module_;
-    pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__radiance";
+    pgDesc.hitgroup.moduleCH = module;
+    pgDesc.hitgroup.entryFunctionNameCH = info.closesthit.c_str();
+    pgDesc.hitgroup.moduleAH = module;
+    pgDesc.hitgroup.entryFunctionNameAH = info.anyhit.c_str();
 
     OPTIX_LOG_V();
     OPTIX_CHECK(optixProgramGroupCreate(optix_context_,
@@ -196,39 +223,40 @@ void OptixRenderer::CreateHitgroupPrograms()
                                         1,
                                         &pgOptions,
                                         log, &sizeof_log,
-                                        &hitgroupPGs_[0]
+                                        &pg
     ));
+
+    program_groups_.insert({info.hitgroup, pg});
 }
 
-void OptixRenderer::CreatePipeline()
+void OptixRenderer::setPipeline(const OptixStateInfo& info)
 {
-    LOG_INFO("创建着色器流水线...")
+    LOG_INFO("创建着色器流水线: {}...", info.ptx_name)
 
-    OPTIX_LOG_V();
-    std::vector<OptixProgramGroup> program_groups;
-    for (auto pg : raygenPGs_)
-        program_groups.push_back(pg);
-    for (auto pg : missPGs_)
-        program_groups.push_back(pg);
-    for (auto pg : hitgroupPGs_)
-        program_groups.push_back(pg);
+    std::vector<OptixProgramGroup> groups;
+    groups.push_back(program_groups_[info.raygen]);
+    groups.push_back(program_groups_[info.miss]);
+    groups.push_back(program_groups_[info.hitgroup]);
+
+    OptixState& state = states_[info.ptx_name];
 
     const uint32_t max_trace_depth = 0;
-    pipeline_link_options_.maxTraceDepth = max_trace_depth;
-    pipeline_link_options_.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+    state.link_options.maxTraceDepth = max_trace_depth;
+    state.link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
 
+    OPTIX_LOG_V();
     OPTIX_CHECK(optixPipelineCreate(optix_context_,
-                                    &pipeline_compile_options_,
-                                    &pipeline_link_options_,
-                                    program_groups.data(),
-                                    (int) program_groups.size(),
+                                    &state.pipeline_compile_options,
+                                    &state.link_options,
+                                    groups.data(),
+                                    (int) groups.size(),
                                     log, &sizeof_log,
-                                    &pipeline_
+                                    &state.pipeline
     ));
 
     // STACK SIZES
     OptixStackSizes stack_sizes = {};
-    for (auto& prog_group : program_groups) {
+    for (auto& prog_group : groups) {
         OPTIX_CHECK(optixUtilAccumulateStackSizes(prog_group, &stack_sizes));
     }
 
@@ -241,58 +269,80 @@ void OptixRenderer::CreatePipeline()
                                            &direct_callable_stack_size_from_traversal,
                                            &direct_callable_stack_size_from_state, &continuation_stack_size));
 
-    OPTIX_CHECK(optixPipelineSetStackSize(pipeline_, direct_callable_stack_size_from_traversal,
+    OPTIX_CHECK(optixPipelineSetStackSize(state.pipeline, direct_callable_stack_size_from_traversal,
                                           direct_callable_stack_size_from_state, continuation_stack_size,
                                           2  // maxTraversableDepth
     ));
 }
 
-void OptixRenderer::BuildSBT()
+void OptixRenderer::createSBT(const OptixStateInfo& info)
 {
+    auto state = states_.find(info.ptx_name);
+    AGATE_ASSERT(state != states_.end() && "没有相应的 Optix State，不能创建 SBT");
+
+    // TODO: 能够添加 sbt 信息
     LOG_INFO("创建 Shader Binging Table(SBT)...")
 
+    OptixShaderBindingTable sbt = {};
     /// ------------------------------------------------------------------
     /// build ray generation program records
     /// ------------------------------------------------------------------
-    std::vector<SbtRecordHeader> raygenRecords;
-    for (auto& raygenPG : raygenPGs_) {
-        SbtRecordHeader rec{};
+    {
+        auto raygenPG = program_groups_[info.raygen];
+        EmptyRecord rec;
         OPTIX_CHECK(optixSbtRecordPackHeader(raygenPG, &rec));
-        raygenRecords.push_back(rec);
+        raygen_records_buf_.allocAndUpload(&rec);
+        sbt.raygenRecord = raygen_records_buf_.get();
     }
-    raygen_records_buf_.allocAndUpload(raygenRecords);
-    sbt_.raygenRecord = raygen_records_buf_.get();
 
     /// ------------------------------------------------------------------
     /// build miss program records
     /// ------------------------------------------------------------------
-    std::vector<SbtRecordHeader> missRecords;
-    for (auto& missPGs : raygenPGs_) {
-        SbtRecordHeader rec{};
-        OPTIX_CHECK(optixSbtRecordPackHeader(missPGs, &rec));
-        missRecords.push_back(rec);
+    {
+        auto missPG = program_groups_[info.miss];
+        EmptyRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(missPG, &rec));
+        miss_records_buf_.allocAndUpload(&rec);
+        sbt.missRecordBase = miss_records_buf_.get();
+        sbt.missRecordCount = 1;
+        sbt.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(EmptyRecord));
     }
-    miss_records_buf_.allocAndUpload(missRecords);
-    sbt_.missRecordBase = miss_records_buf_.get();
-    sbt_.missRecordCount = static_cast<int>(missRecords.size());
-    sbt_.missRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
 
 
     /// ------------------------------------------------------------------
     /// build hitgroup program records
     /// ------------------------------------------------------------------
-    std::vector<SbtRecordHeader> hitgroupRecords;
-
-    // TODO 设置物体信息
-    for (auto& missPGs : raygenPGs_) {
-        SbtRecordHeader rec{};
-        OPTIX_CHECK(optixSbtRecordPackHeader(missPGs, &rec));
+    std::vector<EmptyRecord> hitgroupRecords;
+    {
+        auto chPG = program_groups_[info.hitgroup];
+        EmptyRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(chPG, &rec));
         hitgroupRecords.push_back(rec);
     }
+
     hitgroup_records_buf_.allocAndUpload(hitgroupRecords);
-    sbt_.hitgroupRecordBase = hitgroup_records_buf_.get();
-    sbt_.hitgroupRecordCount = static_cast<int>(hitgroupRecords.size());
-    sbt_.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(SbtRecordHeader));
+    sbt.hitgroupRecordBase = hitgroup_records_buf_.get();
+    sbt.hitgroupRecordCount = static_cast<int>(hitgroupRecords.size());
+    sbt.hitgroupRecordStrideInBytes = static_cast<unsigned int>(sizeof(EmptyRecord));
+
+    sbts_.insert({info.ptx_name, sbt});
+}
+
+void OptixRenderer::addSBT(std::string_view name, OptixShaderBindingTable sbt)
+{
+    sbts_[name.data()] = sbt;
+}
+
+void OptixRenderer::bind(std::string_view name)
+{
+    auto st = states_.find(name.data());
+    auto sb = sbts_.find(name.data());
+    AGATE_ASSERT(st != states_.end() &&
+        sb != sbts_.end() &&
+        "没有相应的 Optix 状态和 SBT");
+
+    bind_state_.pipeline = st->second.pipeline;
+    bind_state_.sbt = sb->second;
 }
 
 void OptixRenderer::Render()
@@ -304,11 +354,11 @@ void OptixRenderer::Render()
     params_.frameID++;
 
     OPTIX_CHECK(optixLaunch(/*! pipeline we're launching launch: */
-        pipeline_, stream_,
+        bind_state_.pipeline, stream_,
         /*! parameters and SBT */
         params_buffer_.get(),
         params_buffer_.byte_size,
-        &sbt_,
+        &bind_state_.sbt,
         /*! dimensions of the launch: */
         params_.frame_buffer_size.x,
         params_.frame_buffer_size.y,
@@ -326,98 +376,6 @@ void OptixRenderer::Resize(const int2& newSize, uchar4* mapped_buffer)
     // launch:
     params_.frame_buffer_size = newSize;
     params_.color_buffer = mapped_buffer;
-}
-
-void OptixRenderer::createModule(std::string_view name)
-{
-    LOG_INFO("创建 Optix module: {}...", name)
-    
-    ModuleState moduleState;
-    
-    moduleState.compile_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
-    moduleState.compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
-    moduleState.compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
-
-    PipelineState pipelineState;
-    pipelineState.compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
-    pipelineState.compile_options.usesMotionBlur = false;
-    pipelineState.compile_options.numPayloadValues = 2;
-    pipelineState.compile_options.numAttributeValues = 2;
-
-    pipelineState.compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
-    pipelineState.compile_options.pipelineLaunchParamsVariableName = "params";
-
-    const std::string ptxCode = ReadPTX(name);
-
-    OPTIX_LOG_V();
-    OPTIX_CHECK_LOG(optixModuleCreateFromPTX(optix_context_,
-                                             &moduleState.compile_options,
-                                             &pipelineState.compile_options,
-                                             ptxCode.c_str(),
-                                             ptxCode.size(),
-                                             log, &sizeof_log,
-                                             &moduleState.module
-    ));
-    
-    modules_[name.data()] = moduleState;
-    pipelines_[name.data()] = pipelineState;
-}
-
-void OptixRenderer::createPipeline(std::string_view name,
-                                   const std::vector<OptixProgramGroup>& raygenPGs,
-                                   const std::vector<OptixProgramGroup>& missPGs,
-                                   const std::vector<OptixProgramGroup>& hitgroupPGs)
-{
-    LOG_INFO("创建着色器流水线: {}...", name)
-
-    std::vector<OptixProgramGroup> program_groups;
-    for (auto pg : raygenPGs)
-        program_groups.push_back(pg);
-    for (auto pg : missPGs)
-        program_groups.push_back(pg);
-    for (auto pg : hitgroupPGs)
-        program_groups.push_back(pg);
-
-    PipelineState pipelineState = pipelines_[name.data()];
-    
-    const uint32_t max_trace_depth = 0;
-    pipelineState.link_options.maxTraceDepth = max_trace_depth;
-    pipelineState.link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
-
-    OPTIX_LOG_V();
-    OPTIX_CHECK(optixPipelineCreate(optix_context_,
-                                    &pipelineState.compile_options,
-                                    &pipelineState.link_options,
-                                    program_groups.data(),
-                                    (int) program_groups.size(),
-                                    log, &sizeof_log,
-                                    &pipelineState.pipeline
-    ));
-
-    // STACK SIZES
-    OptixStackSizes stack_sizes = {};
-    for (auto& prog_group : program_groups) {
-        OPTIX_CHECK(optixUtilAccumulateStackSizes(prog_group, &stack_sizes));
-    }
-
-    uint32_t direct_callable_stack_size_from_traversal;
-    uint32_t direct_callable_stack_size_from_state;
-    uint32_t continuation_stack_size;
-    OPTIX_CHECK(optixUtilComputeStackSizes(&stack_sizes, max_trace_depth,
-                                           0,  // maxCCDepth
-                                           0,  // maxDCDEpth
-                                           &direct_callable_stack_size_from_traversal,
-                                           &direct_callable_stack_size_from_state, &continuation_stack_size));
-
-    OPTIX_CHECK(optixPipelineSetStackSize(pipelineState.pipeline, direct_callable_stack_size_from_traversal,
-                                          direct_callable_stack_size_from_state, continuation_stack_size,
-                                          2  // maxTraversableDepth
-    ));
-}
-
-void OptixRenderer::addSBT(std::string_view name, OptixShaderBindingTable sbt)
-{
-    sbts_[name.data()] = sbt;
 }
 
 } // namespace Agate
