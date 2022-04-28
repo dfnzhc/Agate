@@ -10,7 +10,6 @@
 
 #include <Agate/Shader/VertexInfo.h>
 #include <Agate/Util/ReadFile.h>
-#include <Agate/Util/Record.hpp>
 
 namespace Agate {
 

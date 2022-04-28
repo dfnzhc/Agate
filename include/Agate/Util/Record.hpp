@@ -11,11 +11,6 @@
 
 namespace Agate {
 
-struct RecordHeader
-{
-    __align__(OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE]{};
-};
-
 template <typename T>
 struct Record
 {
@@ -24,6 +19,7 @@ struct Record
 };
 
 struct EmptyData {};
+
 using EmptyRecord       = Record<EmptyData>;
 
 using RaygenRecord      = Record<RayGenData>;

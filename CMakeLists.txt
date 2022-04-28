@@ -99,7 +99,7 @@ set(SOURCES
         src/Core/Common.cpp
         src/Core/Aplication.cpp
         src/Core/OptixRenderer.cpp
-        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h src/Util/Scene.cpp include/Agate/Util/Scene.hpp)
+        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h src/Util/Scene.cpp include/Agate/Util/Scene.hpp include/Agate/Util/ModelData.cpp include/Agate/Util/ModelData.hpp)
 
 
 set(SHADERS

@@ -9,6 +9,7 @@
 #include <driver_types.h>
 #include <Agate/Util/CudaBuffer.h>
 #include <Agate/Shader/Params.h>
+#include <Agate/Util/Record.hpp>
 #include "Interfaces.h"
 
 namespace Agate {
@@ -48,7 +49,7 @@ class OptixRenderer
         OptixPipeline pipeline = {};
         OptixShaderBindingTable sbt = {};
     };
-    
+
     BindState bind_state_ = {};
 
     std::unordered_map<std::string, OptixProgramGroup> program_groups_;
@@ -87,8 +88,10 @@ public:
     void Resize(const int2& newSize, uchar4* mapped_buffer);
 
     void createSBT(const OptixStateInfo& info);
+
     void addSBT(std::string_view name, OptixShaderBindingTable sbt);
 };
+
 
 } // namespace Agate
 
