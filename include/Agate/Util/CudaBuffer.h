@@ -27,7 +27,7 @@ struct CudaBuffer
 
     void alloc(size_t size)
     {
-        assert(d_ptr == nullptr);
+        assert(dev_ptr == nullptr);
         this->byte_size = size;
         CUDA_CHECK(cudaMalloc((void**) &dev_ptr, byte_size));
     }
@@ -43,7 +43,7 @@ struct CudaBuffer
     void upload(const T* t, size_t count)
     {
         assert(dev_ptr != nullptr);
-        assert(sizeInBytes == count * sizeof(T));
+        assert(byte_size == count * sizeof(T));
         CUDA_CHECK(cudaMemcpy(dev_ptr, (void*) t, count * sizeof(T), cudaMemcpyHostToDevice));
     }
 
@@ -65,7 +65,7 @@ struct CudaBuffer
     void download(T* t, size_t count)
     {
         assert(dev_ptr != nullptr);
-        assert(sizeInBytes == count * sizeof(T));
+        assert(byte_size == count * sizeof(T));
         CUDA_CHECK(cudaMemcpy((void*) t, dev_ptr, count * sizeof(T), cudaMemcpyDeviceToHost));
     }
 };

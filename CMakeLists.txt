@@ -88,7 +88,7 @@ set(HEADERS
         include/Agate/Util/Camera.hpp
         include/Agate/Util/Quaternion.hpp
         include/Agate/Util/Record.hpp
-        include/Agate/Shader/Geometry.hpp)
+        include/Agate/Shader/Geometry.hpp include/Agate/Util/Tracker.hpp)
 
 
 set(SOURCES
@@ -99,7 +99,7 @@ set(SOURCES
         src/Core/Common.cpp
         src/Core/Aplication.cpp
         src/Core/OptixRenderer.cpp
-        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h src/Util/Scene.cpp include/Agate/Util/Scene.hpp include/Agate/Util/ModelData.cpp include/Agate/Util/ModelData.hpp)
+        src/Core/GLDisplay.cpp include/Agate/Core/GLDisplay.h src/Util/Scene.cpp include/Agate/Util/Scene.hpp src/Util/ModelData.cpp include/Agate/Util/ModelData.hpp)
 
 
 set(SHADERS

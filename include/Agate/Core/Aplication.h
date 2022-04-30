@@ -26,11 +26,13 @@ class Application : public AgateWindow
     CudaOutputBuffer<uchar4> output_buffer_;
     std::unique_ptr<OptixRenderer> optix_renderer_;
     
+    std::shared_ptr<ModelData> model_;
     std::shared_ptr<Scene> scene_;
     
     std::vector<std::string> optix_modules_;
     
     void createOptixState();
+    void loadAssets();
     
     void Render() override;
     void Draw() override;

@@ -58,7 +58,7 @@ void AgateWindow::InitWindow()
         glfwTerminate();
         throw AgateException("Failed to create GLFW window.");
     }
-    
+
     glfwSetWindowUserPointer(handle_, this);
     glfwMakeContextCurrent(handle_);
     glfwSwapInterval(0);
@@ -75,14 +75,6 @@ void AgateWindow::InitWindow()
 
 void AgateWindow::SetGLFWCallback()
 {
-    glfwSetScrollCallback(
-        handle_,
-        [](GLFWwindow* window, double xoffset, double yoffset)
-        {
-            // ,,
-        }
-    );
-
     glfwSetKeyCallback(
         handle_,
         [](GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -100,6 +92,44 @@ void AgateWindow::SetGLFWCallback()
             auto* aw = static_cast<AgateWindow*>(glfwGetWindowUserPointer(window));
             AGATE_ASSERT(aw);
             aw->Resize({width, height});
+        }
+    );
+
+    glfwSetMouseButtonCallback(
+        handle_,
+        [](GLFWwindow* window, int button, int action, int mods)
+        {
+            auto* aw = static_cast<AgateWindow*>(glfwGetWindowUserPointer(window));
+            AGATE_ASSERT(aw);
+
+            if (action == GLFW_PRESS) {
+                aw->input_.mouse_button = button;
+            } else {
+                aw->input_.mouse_button = -1;
+            }
+        }
+    );
+
+    glfwSetCursorPosCallback(
+        handle_,
+        [](GLFWwindow* window, double xpos, double ypos)
+        {
+            auto* aw = static_cast<AgateWindow*>(glfwGetWindowUserPointer(window));
+            AGATE_ASSERT(aw);
+            aw->input_.posX = static_cast<int>(xpos);
+            aw->input_.posY = static_cast<int>(ypos);
+            
+            aw->cursorUpdate();
+        }
+    );
+
+    glfwSetScrollCallback(
+        handle_,
+        [](GLFWwindow* window, double xscroll, double yscroll)
+        {
+            auto* aw = static_cast<AgateWindow*>(glfwGetWindowUserPointer(window));
+            AGATE_ASSERT(aw);
+            aw->input_.scroll = static_cast<int>(yscroll);
         }
     );
 }

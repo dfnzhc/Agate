@@ -15,7 +15,7 @@ inline std::string ReadPTX(std::string_view fileName)
     std::string path = "./ptx/";
     path += fileName;
     path += ".ptx";
-    
+
     std::ifstream input{path};
 
     if (!input) {
@@ -46,8 +46,12 @@ inline std::string GetAssetPath(std::string_view assetName)
     std::string path = std::string(AGATE_ASSETS_PATH);
     path += '/';
     path += assetName;
+
+    if (FileExist(path.c_str())) {
+        return path;
+    }
     
-    return FileExist(path.c_str()) ? path : "";
+    throw AgateException("文件不存在.");
 }
 
 } // namespace Agate

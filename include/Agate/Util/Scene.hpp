@@ -19,17 +19,16 @@ class Scene
 {
 public:
     Scene() = default;
-    explicit Scene(OptixDeviceContext& context) : context_{context}{}
+    explicit Scene(OptixDeviceContext context) : context_{context}{}
     ~Scene();
     
-    void addMeshData(const ModelData& model);
+    void addMeshData(std::shared_ptr<ModelData>& model);
     void finalize(int rayTypeCount);
     void cleanup();
 
     OptixDeviceContext context() const { return context_; }
 
-
-    void buildMeshAccels(uint32_t triangle_input_flags = OPTIX_GEOMETRY_FLAG_DISABLE_ANYHIT);
+    void buildMeshAccels(uint32_t triangle_input_flags = OPTIX_GEOMETRY_FLAG_NONE);
     void buildInstanceAccel(int rayTypeCount);
 
     OptixShaderBindingTable createSBT(const std::vector<OptixProgramGroup>& raygenPGs,
@@ -43,7 +42,7 @@ private:
     CudaBuffer missRecordBuffer{};
     CudaBuffer hitgroupRecordBuffer{};
 
-    OptixDeviceContext& context_;
+    OptixDeviceContext context_;
     OptixTraversableHandle ias_handle_ = 0;
     CUdeviceptr d_ias_output_buffer_ = 0;
 };

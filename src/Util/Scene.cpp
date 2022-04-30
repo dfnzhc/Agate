@@ -13,10 +13,10 @@ Scene::~Scene()
     cleanup();
 }
 
-void Scene::addMeshData(const ModelData& model)
+void Scene::addMeshData(std::shared_ptr<ModelData>& model)
 {
-    auto meshes = model.meshes();
-    auto materials = model.materials();
+    auto meshes = model->meshes();
+    auto materials = model->materials();
     
     meshes_.resize(meshes.size());
     materials_.resize(materials.size());
@@ -75,7 +75,7 @@ void Scene::buildMeshAccels(uint32_t triangle_input_flags)
 
         OptixAccelBufferSizes gas_buffer_sizes;
         OPTIX_CHECK(optixAccelComputeMemoryUsage(context_, &accel_options, buildInputs.data(),
-                                                 static_cast<unsigned int>( num_subMeshes ), &gas_buffer_sizes));
+                                                 static_cast<unsigned int>(num_subMeshes), &gas_buffer_sizes));
 
         CudaBuffer d_temp_compactedSizes;
         d_temp_compactedSizes.alloc(sizeof(uint64_t));

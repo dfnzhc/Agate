@@ -79,6 +79,7 @@ public:
 
     OptixRenderer(const OptixRenderer&) = delete;
     OptixRenderer& operator=(const OptixRenderer&) = delete;
+    OptixDeviceContext getContext() { return optix_context_; }
 
     void finalize(const OptixStateInfo& info);
     void clearup();

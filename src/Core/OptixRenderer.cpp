@@ -50,7 +50,6 @@ void OptixRenderer::finalize(const OptixStateInfo& info)
     CreateHitGroupPrograms(state.module, info);
 
     setPipeline(info);
-    createSBT(info);
 }
 
 void OptixRenderer::clearup()

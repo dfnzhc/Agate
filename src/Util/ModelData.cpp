@@ -2,7 +2,7 @@
 // Created by 秋鱼 on 2022/4/28.
 //
 
-#include "ModelData.hpp"
+#include "include/Agate/Util/ModelData.hpp"
 #include <Agate/Core/Error.h>
 #include <Agate/Util/Quaternion.hpp>
 
