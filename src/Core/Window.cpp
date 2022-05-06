@@ -118,7 +118,7 @@ void AgateWindow::SetGLFWCallback()
             AGATE_ASSERT(aw);
             aw->input_.posX = static_cast<int>(xpos);
             aw->input_.posY = static_cast<int>(ypos);
-            
+
             aw->cursorUpdate();
         }
     );
@@ -130,6 +130,8 @@ void AgateWindow::SetGLFWCallback()
             auto* aw = static_cast<AgateWindow*>(glfwGetWindowUserPointer(window));
             AGATE_ASSERT(aw);
             aw->input_.scroll = static_cast<int>(yscroll);
+
+            aw->cursorUpdate();
         }
     );
 }

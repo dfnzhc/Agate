@@ -11,7 +11,7 @@ namespace Agate {
 
 struct Camera
 {
-    float3 eye{1.0f, 1.0f, 1.0f};
+    float3 eye{0.0f, 0.0f, 3.0f};
     float3 lookat{0.0f, 0.0f, 0.0f};
     float3 up{0.0f, 1.0f, 0.0f};
 

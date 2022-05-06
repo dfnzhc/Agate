@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Agate/Util/Scene.hpp>
+#include <Agate/Util/MouseTracker.hpp>
 #include "Window.h"
 #include "OptixRenderer.h"
 #include "GLDisplay.h"
@@ -31,6 +32,9 @@ class Application : public AgateWindow
     
     std::vector<std::string> optix_modules_;
     
+    std::shared_ptr<Camera> camera_;
+    std::shared_ptr<MouseTracker> tracker_;
+    
     void createOptixState();
     void loadAssets();
     
@@ -38,6 +42,7 @@ class Application : public AgateWindow
     void Draw() override;
     
     void Resize(const int2& newSize) override;
+    void cursorUpdate() override;
 public:
     explicit Application(const AppProps& props);
     ~Application() = default;

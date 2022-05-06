@@ -88,7 +88,7 @@ set(HEADERS
         include/Agate/Util/Camera.hpp
         include/Agate/Util/Quaternion.hpp
         include/Agate/Util/Record.hpp
-        include/Agate/Shader/Geometry.hpp include/Agate/Util/Tracker.hpp)
+        include/Agate/Shader/Geometry.hpp include/Agate/Util/MouseTracker.hpp)
 
 
 set(SOURCES
@@ -115,7 +115,7 @@ set(SHADERS_HEADERS
         include/Agate/Shader/Geometry.hpp
         include/Agate/Shader/Material.hpp
         include/Agate/Shader/CudaBufferView.hpp
-        include/Agate/Shader/Defines.hpp)
+        include/Agate/Shader/Defines.hpp include/Agate/Shader/random.h include/Agate/Shader/help.h)
 
 
 set_source_files_properties(

@@ -13,6 +13,11 @@
 
 namespace Agate {
 
+struct VertexData
+{
+    
+};
+
 struct MeshData
 {
     std::string name;
@@ -37,9 +42,10 @@ class ModelData
 public:
     ModelData() = default;
     ~ModelData();
-    
+
+    void finalize();
     void cleanup();
-    
+
     void addMeshFromGLTF(std::string_view filename);
 
     void addCamera(const Camera& camera) { cameras_.push_back(camera); }
@@ -53,7 +59,7 @@ public:
         int32_t num_components,
         const void* data
     );
-    
+
     void addSampler(
         cudaTextureAddressMode address_s,
         cudaTextureAddressMode address_t,
@@ -64,11 +70,11 @@ public:
     CUdeviceptr getBuffer(int32_t buffer_index, int32_t offset = -1) const;
     cudaArray_t getImage(int32_t image_index) const { return images_[image_index]; }
     cudaTextureObject_t getSampler(int32_t sampler_index) const { return samplers_[sampler_index]; }
-    Camera camera() const;
+    Camera camera();
     AABB aabb() const { return aabb_; }
     const std::vector<MaterialData>& materials() const { return materials_; }
     const std::vector<std::shared_ptr<MeshData>>& meshes() const { return meshes_; }
-    
+
 private:
     std::vector<Camera> cameras_;
     std::vector<std::shared_ptr<MeshData>> meshes_;

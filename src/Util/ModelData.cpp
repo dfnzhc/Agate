@@ -25,6 +25,17 @@ ModelData::~ModelData()
     cleanup();
 }
 
+
+void ModelData::finalize()
+{
+    aabb_.invalidate();
+    for( const auto mesh: meshes_ )
+        aabb_.include( mesh->world_aabb );
+    
+    if (!cameras_.empty())
+        cameras_.front().lookat = aabb_.center();
+}
+
 void ModelData::cleanup()
 {
     // Free buffers for mesh (indices, positions, normals, texcoords)
@@ -136,7 +147,7 @@ void ModelData::addSampler(cudaTextureAddressMode address_s,
     samplers_.push_back(cuda_tex);
 }
 
-Camera ModelData::camera() const
+Camera ModelData::camera()
 {
     if (!cameras_.empty()) {
         LOG_INFO("Return first camera");
@@ -148,7 +159,10 @@ Camera ModelData::camera() const
     cam.fovY = 45.0f;
     cam.lookat = aabb_.center();
     cam.eye = aabb_.center() + make_float3(0.0f, 0.0f, 1.5f * aabb_.maxExtent());
-    return cam;
+    
+    cameras_.emplace_back(cam);
+    
+    return cameras_.front();
 }
 
 float3 make_float3_from_double(double x, double y, double z)

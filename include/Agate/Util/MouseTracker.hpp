@@ -14,16 +14,16 @@ enum class ViewMode
     EyeFixed, Orbit
 };
 
-float radians(float degrees)
+inline float radians(float degrees)
 {
     return degrees * M_PIf / 180.0f;
 }
-float degrees(float radians)
+inline float degrees(float radians)
 {
     return radians * M_1_PIf * 180.0f;
 }
 
-class Tracker
+class MouseTracker
 {
     Camera* camera_ = nullptr;
     ViewMode view_mode_ = ViewMode::EyeFixed;

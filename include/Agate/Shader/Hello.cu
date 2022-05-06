@@ -1,6 +1,9 @@
 ﻿#include <optix.h>
 
 #include "Params.h"
+#include "random.h"
+#include "vec_math.h"
+#include "help.h"
 
 namespace Agate {
 
@@ -16,36 +19,30 @@ extern "C" __global__ void __raygen__Hello()
 {
     const int frameID = params.frameID; 
 
-    const uint3 theLaunchIndex = optixGetLaunchIndex();
-    if (frameID == 0 &&
-        theLaunchIndex.x == 0 &&
-        theLaunchIndex.y == 0) {
-        // we could of course also have used optixGetLaunchDims to query
-        // the launch size, but accessing the optixLaunchParams here
-        // makes sure they're not getting optimized away (because
-        // otherwise they'd not get used)
-        printf("############################################\n");
-        printf("Hello world from OptiX 7 raygen program!\n(within a %ix%i-sized launch)\n",
-               params.frame_buffer_size.x,
-               params.frame_buffer_size.y);
-        printf("############################################\n");
-    }
+    const uint3  launch_idx     = optixGetLaunchIndex();
+    const uint3  launch_dims    = optixGetLaunchDimensions();
+    const float3 eye            = params.eye;
+    const float3 U              = params.U;
+    const float3 V              = params.V;
+    const float3 W              = params.W;
 
-    // ------------------------------------------------------------------
-    // for this example, produce a simple test pattern:
-    // ------------------------------------------------------------------
+    unsigned int seed = tea<4>( launch_idx.y * launch_dims.x + launch_idx.x, frameID );
 
-    // compute a test pattern based on pixel ID
-    const int ix = theLaunchIndex.x;
-    const int iy = theLaunchIndex.y;
+    // The center of each pixel is at fraction (0.5,0.5)
+    const float2 subpixel_jitter =
+        frameID == 0 ? make_float2( 0.5f, 0.5f ) : make_float2( rnd( seed ), rnd( seed ) );
 
-    const int r = ((ix + frameID) % 256);
-    const int g = ((iy + frameID) % 256);
-    const int b = ((ix + iy + frameID) % 256);
+    const float2 d =
+        2.0f * make_float2( ( static_cast<float>( launch_idx.x ) + subpixel_jitter.x ) / static_cast<float>( launch_dims.x ),
+                           ( static_cast<float>( launch_idx.y ) + subpixel_jitter.y ) / static_cast<float>( launch_dims.y ) )
+        - 1.0f;
+    
+    const float3 ray_direction = normalize( d.x * U + d.y * V + W );
+    const float3 ray_origin    = eye;
 
     // and write to frame buffer ...
-    const uint32_t fbIndex = ix + iy * params.frame_buffer_size.x;
-    params.color_buffer[fbIndex] = make_uchar4(r, g, b, 1);
+    const unsigned int image_index = launch_idx.y * launch_dims.x + launch_idx.x;
+    params.color_buffer[image_index] = make_color(  ray_origin );
 }
 
 } // namespace Agate

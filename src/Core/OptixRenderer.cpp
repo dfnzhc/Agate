@@ -376,4 +376,10 @@ void OptixRenderer::Resize(const int2& newSize, uchar4* mapped_buffer)
     params_.color_buffer = mapped_buffer;
 }
 
+void OptixRenderer::updateCamera(const Camera* camera)
+{
+    params_.eye = camera->eye;
+    camera->UVWFrame(params_.U, params_.V, params_.W);
+}
+
 } // namespace Agate

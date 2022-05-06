@@ -10,6 +10,7 @@
 #include <Agate/Util/CudaBuffer.h>
 #include <Agate/Shader/Params.h>
 #include <Agate/Util/Record.hpp>
+#include <Agate/Util/Camera.hpp>
 #include "Interfaces.h"
 
 namespace Agate {
@@ -85,6 +86,7 @@ public:
     void clearup();
 
     void bind(std::string_view name);
+    void updateCamera(const Camera* camera);
     void Render();
     void Resize(const int2& newSize, uchar4* mapped_buffer);
 
