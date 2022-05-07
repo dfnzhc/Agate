@@ -13,11 +13,6 @@
 
 namespace Agate {
 
-struct VertexData
-{
-    
-};
-
 struct MeshData
 {
     std::string name;
@@ -46,6 +41,7 @@ public:
     void finalize();
     void cleanup();
 
+    void addMesh(const std::vector<float3>& vertices, const std::vector<uint3>& indices);
     void addMeshFromGLTF(std::string_view filename);
 
     void addCamera(const Camera& camera) { cameras_.push_back(camera); }

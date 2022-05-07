@@ -46,7 +46,11 @@ class MouseTracker
 public:
     void setViewMode(ViewMode viewMode) { view_mode_ = viewMode; }
 
-    void setCamera(Camera* camera) { camera_ = camera; initFromCamera(); }
+    void setCamera(Camera* camera)
+    {
+        camera_ = camera;
+        initFromCamera();
+    }
     const Camera* getCamera() const { return camera_; }
 
     float moveSpeed() { return move_speed_; }
@@ -56,7 +60,7 @@ public:
     {
         if (dir == 0)
             return;
-        
+
         float zoomSize = dir > 0 ? 1.0f / ZoomFactor : ZoomFactor;
         lookat_distance_ *= zoomSize;
         const float3& lookat = camera_->lookat;
@@ -70,6 +74,11 @@ public:
         prev_posX_ = x;
         prev_posY_ = y;
         start_tracking_ = true;
+    }
+
+    void stopTracking()
+    {
+        start_tracking_ = false;
     }
 
     void update(int x, int y)
@@ -94,13 +103,13 @@ public:
         u_ = u;
         v_ = v;
         w_ = w;
-        
+
         float3 viewDirWorld = -normalize(camera_->lookat - camera_->eye);
         float3 viewDirLocal;
         viewDirLocal.x = dot(viewDirWorld, u);
         viewDirLocal.y = dot(viewDirWorld, v);
         viewDirLocal.z = dot(viewDirWorld, w);
-        
+
         pitch_ = asin(viewDirLocal.z);
         yaw_ = atan2(viewDirLocal.x, viewDirLocal.y);
     }

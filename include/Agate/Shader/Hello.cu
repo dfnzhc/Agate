@@ -9,40 +9,72 @@ namespace Agate {
 
 extern "C" __constant__ LaunchParams params;
 
-extern "C" __global__ void __closesthit__Hello() { /*! for this simple example, this will remain empty */ }
+static __forceinline__ __device__ void setPayload(float3 p)
+{
+    optixSetPayload_0(float_as_int(p.x));
+    optixSetPayload_1(float_as_int(p.y));
+    optixSetPayload_2(float_as_int(p.z));
+}
+
+static __forceinline__ __device__ void computeRay(uint3 idx, uint3 dim, float3& origin, float3& direction)
+{
+    const float3 U = params.U;
+    const float3 V = params.V;
+    const float3 W = normalize(params.W);
+    const float2 d = 2.0f * make_float2(
+        static_cast<float>( idx.x ) / static_cast<float>( dim.x ),
+        static_cast<float>( idx.y ) / static_cast<float>( dim.y )
+    ) - 1.0f;
+
+    origin = params.eye;
+    direction = normalize(d.x * U + d.y * V + W);
+}
+
+extern "C" __global__ void __closesthit__Hello()
+{
+    const float2 barycentrics = optixGetTriangleBarycentrics();
+    setPayload(make_float3(barycentrics, 1.0f));
+}
 
 extern "C" __global__ void __anyhit__Hello() { /*! for this simple example, this will remain empty */ }
 
-extern "C" __global__ void __miss__Hello() { /*! for this simple example, this will remain empty */ }
-  
+extern "C" __global__ void __miss__Hello() { setPayload(float3{0.2, 0.3, 0.5}); }
+
 extern "C" __global__ void __raygen__Hello()
 {
-    const int frameID = params.frameID; 
+    const int frameID = params.frameID;
 
-    const uint3  launch_idx     = optixGetLaunchIndex();
-    const uint3  launch_dims    = optixGetLaunchDimensions();
-    const float3 eye            = params.eye;
-    const float3 U              = params.U;
-    const float3 V              = params.V;
-    const float3 W              = params.W;
+    // Lookup our location within the launch grid
+    const uint3 idx = optixGetLaunchIndex();
+    const uint3 dim = optixGetLaunchDimensions();
 
-    unsigned int seed = tea<4>( launch_idx.y * launch_dims.x + launch_idx.x, frameID );
+    // Map our launch idx to a screen location and create a ray from the camera
+    // location through the screen
+    float3 ray_origin, ray_direction;
+    computeRay(idx, dim, ray_origin, ray_direction);
 
-    // The center of each pixel is at fraction (0.5,0.5)
-    const float2 subpixel_jitter =
-        frameID == 0 ? make_float2( 0.5f, 0.5f ) : make_float2( rnd( seed ), rnd( seed ) );
-
-    const float2 d =
-        2.0f * make_float2( ( static_cast<float>( launch_idx.x ) + subpixel_jitter.x ) / static_cast<float>( launch_dims.x ),
-                           ( static_cast<float>( launch_idx.y ) + subpixel_jitter.y ) / static_cast<float>( launch_dims.y ) )
-        - 1.0f;
-    
-    const float3 ray_direction = normalize( d.x * U + d.y * V + W );
-    const float3 ray_origin    = eye;
+    // Trace the ray against our scene hierarchy
+    unsigned int p0, p1, p2;
+    optixTrace(
+        params.traversable,
+        ray_origin,
+        ray_direction,
+        0.0f,                // Min intersection distance
+        1e16f,               // Max intersection distance
+        0.0f,                // rayTime -- used for motion blur
+        OptixVisibilityMask(255), // Specify always visible
+        OPTIX_RAY_FLAG_NONE,
+        0,                   // SBT offset   -- See SBT discussion
+        1,                   // SBT stride   -- See SBT discussion
+        0,                   // missSBTIndex -- See SBT discussion
+        p0, p1, p2);
+    float3 result;
+    result.x = int_as_float(p0);
+    result.y = int_as_float(p1);
+    result.z = int_as_float(p2);
 
     // and write to frame buffer ...
-    const unsigned int image_index = launch_idx.y * launch_dims.x + launch_idx.x;
-    params.color_buffer[image_index] = make_color(  ray_origin );
+    params.color_buffer[idx.y * params.frame_buffer_size.x + idx.x] = make_color(result);
 }
 
 } // namespace Agate

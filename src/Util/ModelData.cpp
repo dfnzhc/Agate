@@ -25,13 +25,12 @@ ModelData::~ModelData()
     cleanup();
 }
 
-
 void ModelData::finalize()
 {
     aabb_.invalidate();
-    for( const auto mesh: meshes_ )
-        aabb_.include( mesh->world_aabb );
-    
+    for (const auto mesh : meshes_)
+        aabb_.include(mesh->world_aabb);
+
     if (!cameras_.empty())
         cameras_.front().lookat = aabb_.center();
 }
@@ -61,7 +60,7 @@ CUdeviceptr ModelData::getBuffer(int32_t buffer_index, int32_t offset) const
 {
     if (offset == -1)
         return buffers_[buffer_index];
-    else 
+    else
         return buffers_[buffer_index + offset];
 }
 
@@ -159,9 +158,9 @@ Camera ModelData::camera()
     cam.fovY = 45.0f;
     cam.lookat = aabb_.center();
     cam.eye = aabb_.center() + make_float3(0.0f, 0.0f, 1.5f * aabb_.maxExtent());
-    
+
     cameras_.emplace_back(cam);
-    
+
     return cameras_.front();
 }
 
@@ -355,7 +354,7 @@ void ModelData::addMeshFromGLTF(std::string_view filename)
     // Buffer data
     // -------------
     buffer_offsets_.push_back(buffers_.size());
-    
+
     for (const auto& gltf_buffer : model.buffers) {
         const uint64_t buf_size = gltf_buffer.data.size();
         LOG_INFO("Processing glTF buffer '{}' \n\tbyte size: {} \n\turi      : {}",
@@ -518,6 +517,5 @@ void ModelData::addMeshFromGLTF(std::string_view filename)
         ProcessGLTFNode(*this, model, gltf_node, Matrix4x4::identity());
     }
 }
-
 
 } // namespace Agate

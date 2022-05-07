@@ -50,6 +50,82 @@ void OptixRenderer::finalize(const OptixStateInfo& info)
     CreateHitGroupPrograms(state.module, info);
 
     setPipeline(info);
+
+    {
+        // Use default options for simplicity.  In a real use case we would want to
+        // enable compaction, etc
+        OptixAccelBuildOptions accel_options = {};
+        accel_options.buildFlags = OPTIX_BUILD_FLAG_NONE;
+        accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
+
+        // Triangle build input: simple list of three vertices
+        const std::array<float3, 3> vertices =
+            {{
+                 {-0.5f, -0.5f, 0.0f},
+                 {0.5f, -0.5f, 0.0f},
+                 {0.0f, 0.5f, 0.0f}
+             }};
+
+        const size_t vertices_size = sizeof(float3) * vertices.size();
+        CUdeviceptr d_vertices = 0;
+        CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>( &d_vertices ), vertices_size));
+        CUDA_CHECK(cudaMemcpy(
+            reinterpret_cast<void*>( d_vertices ),
+            vertices.data(),
+            vertices_size,
+            cudaMemcpyHostToDevice
+        ));
+
+        // Our build input is a simple list of non-indexed triangle vertices
+        const uint32_t triangle_input_flags[1] = {OPTIX_GEOMETRY_FLAG_NONE};
+        OptixBuildInput triangle_input = {};
+        triangle_input.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+        triangle_input.triangleArray.vertexFormat = OPTIX_VERTEX_FORMAT_FLOAT3;
+        triangle_input.triangleArray.numVertices = static_cast<uint32_t>( vertices.size());
+        triangle_input.triangleArray.vertexBuffers = &d_vertices;
+        triangle_input.triangleArray.flags = triangle_input_flags;
+        triangle_input.triangleArray.numSbtRecords = 1;
+
+        OptixAccelBufferSizes gas_buffer_sizes;
+        OPTIX_CHECK(optixAccelComputeMemoryUsage(
+            optix_context_,
+            &accel_options,
+            &triangle_input,
+            1, // Number of build inputs
+            &gas_buffer_sizes
+        ));
+        CUdeviceptr d_temp_buffer_gas;
+        CUDA_CHECK(cudaMalloc(
+            reinterpret_cast<void**>( &d_temp_buffer_gas ),
+            gas_buffer_sizes.tempSizeInBytes
+        ));
+        CUDA_CHECK(cudaMalloc(
+            reinterpret_cast<void**>( &d_gas_output_buffer_ ),
+            gas_buffer_sizes.outputSizeInBytes
+        ));
+
+        OPTIX_CHECK(optixAccelBuild(
+            optix_context_,
+            0,                  // CUDA stream
+            &accel_options,
+            &triangle_input,
+            1,                  // num build inputs
+            d_temp_buffer_gas,
+            gas_buffer_sizes.tempSizeInBytes,
+            d_gas_output_buffer_,
+            gas_buffer_sizes.outputSizeInBytes,
+            &gas_handle_,
+            nullptr,            // emitted property list
+            0                   // num emitted properties
+        ));
+
+        // We can now free the scratch space buffer used during build and the vertex
+        // inputs, since they are not needed by our trivial shading method
+        CUDA_CHECK(cudaFree(reinterpret_cast<void*>( d_temp_buffer_gas )));
+        CUDA_CHECK(cudaFree(reinterpret_cast<void*>( d_vertices        )));
+    }
+    
+    params_.traversable = gas_handle_;
 }
 
 void OptixRenderer::clearup()
@@ -130,8 +206,8 @@ void OptixRenderer::createModule(std::string_view ptxName)
 
     state.pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
     state.pipeline_compile_options.usesMotionBlur = false;
-    state.pipeline_compile_options.numPayloadValues = 2;
-    state.pipeline_compile_options.numAttributeValues = 2;
+    state.pipeline_compile_options.numPayloadValues = 3;
+    state.pipeline_compile_options.numAttributeValues = 3;
 
     state.pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
     state.pipeline_compile_options.pipelineLaunchParamsVariableName = "params";

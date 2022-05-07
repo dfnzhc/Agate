@@ -62,6 +62,8 @@ class OptixRenderer
     LaunchParams params_{};
     CudaBuffer params_buffer_{};
 
+    OptixTraversableHandle gas_handle_ = {};
+    CUdeviceptr d_gas_output_buffer_ = {};
     /// 用于初始化 OptiX
     void InitOptiX();
 
@@ -94,7 +96,6 @@ public:
 
     void addSBT(std::string_view name, OptixShaderBindingTable sbt);
 };
-
 
 } // namespace Agate
 

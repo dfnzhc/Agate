@@ -52,9 +52,13 @@ void Application::finalize()
     createOptixState();
     loadAssets();
 
-    camera_ = std::make_shared<Camera>(model_->camera());
+//    camera_ = std::make_shared<Camera>(model_->camera());
     tracker_->setCamera(camera_.get());
-
+    tracker_->setFrame(
+        make_float3(1.0f, 0.0f, 0.0f),
+        make_float3(0.0f, 0.0f, 1.0f),
+        make_float3(0.0f, 1.0f, 0.0f)
+    );
     scene_->finalize(1);
 }
 
@@ -88,18 +92,20 @@ void Application::cursorUpdate()
 {
     if (input_.mouse_button != -1) {
         if (input_.mouse_button == GLFW_MOUSE_BUTTON_LEFT) {
-            tracker_->setViewMode(ViewMode::Orbit);
-        }
-        else if (input_.mouse_button == GLFW_MOUSE_BUTTON_RIGHT) {
             tracker_->setViewMode(ViewMode::EyeFixed);
+        } else if (input_.mouse_button == GLFW_MOUSE_BUTTON_RIGHT) {
+            tracker_->setViewMode(ViewMode::Orbit);
         }
 
         tracker_->update(input_.posX, input_.posY);
     }
-    
+    else {
+        tracker_->stopTracking();
+    }
+
     if (input_.scroll != 0) {
         tracker_->zoom(input_.scroll);
-        
+
         input_.scroll = 0;
     }
 }
